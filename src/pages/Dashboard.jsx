@@ -457,7 +457,7 @@ export default function Dashboard() {
       >
         <form onSubmit={handleSaveSetup} className="space-y-4">
           <p className="text-xs text-gray-400 leading-relaxed">
-            Please enter your target role and academic details so CareerIQ can personalize your AI roadmap and calculate your Career Health.
+            Please enter your target role and academic details so CareerAI can personalize your AI roadmap and calculate your Career Health.
           </p>
 
           <div>

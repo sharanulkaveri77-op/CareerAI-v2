@@ -105,7 +105,7 @@ async function handleChat(body: ReqBody): Promise<Record<string, unknown>> {
     .map((m) => `${m.role === 'user' ? 'Candidate' : 'Advisor'}: ${m.content}`)
     .join('\n')
   const system =
-    'You are CareerIQ, a concise, encouraging career advisor for students ' +
+    'You are CareerAI, a concise, encouraging career advisor for students ' +
     'and early-career professionals. Give practical, specific advice. ' +
     'Respond with JSON only: {"reply": "..."} where reply is plain text.'
   const prompt =

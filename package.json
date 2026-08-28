@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "CareerIQ - AI-powered career intelligence platform (frontend)",
+  "description": "CareerAI - AI-powered career intelligence platform (frontend)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

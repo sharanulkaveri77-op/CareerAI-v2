@@ -1,4 +1,4 @@
-// CareerIQ brand mark — inline SVG so it renders crisp at any size,
+// CareerAI brand mark — inline SVG so it renders crisp at any size,
 // adapts to any theme, and needs no network requests.
 
 export default function Logo({ size = 40, withWordmark = false, subtitle, className = '' }) {
@@ -10,7 +10,7 @@ export default function Logo({ size = 40, withWordmark = false, subtitle, classN
         viewBox="0 0 48 48"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="CareerIQ logo"
+        aria-label="CareerAI logo"
       >
         <defs>
           <linearGradient id="ciq-g" x1="0" y1="0" x2="48" y2="48">
@@ -36,7 +36,7 @@ export default function Logo({ size = 40, withWordmark = false, subtitle, classN
       {withWordmark && (
         <div className="leading-tight">
           <p className="text-heading font-bold text-lg tracking-tight">
-            Career<span className="text-accent-light">IQ</span>
+            Career<span className="text-accent-light">AI</span>
           </p>
           {subtitle && (
             <p className="text-[10px] tracking-widest text-gray-500 uppercase">

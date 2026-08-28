@@ -418,7 +418,7 @@ export default function Login() {
             </div>
 
             <p className="text-center text-xs text-gray-600 mt-6">
-              CareerIQ · Secure career intelligence platform
+              CareerAI · Secure career intelligence platform
             </p>
           </div>
         </div>

@@ -23,7 +23,7 @@ Software Engineering Intern | TechCorp Inc. (June 2023 - Present)
 - Optimized PostgreSQL database queries with indexes, cutting query latency from 450ms to 80ms.
 
 PROJECTS
-CareerIQ - Intelligent Career Growth SaaS
+CareerAI - Intelligent Career Growth SaaS
 - Built a full-stack career platform using React, Vite, Supabase, and Google Gemini 2.5 Flash API.
 - Implemented real-time ATS resume scanning, DSA practice engine, and voice communication coaching.`
 

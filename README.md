@@ -1,6 +1,6 @@
-# CareerIQ — Career Intelligence Platform (Frontend)
+# CareerAI — Career Intelligence Platform (Frontend)
 
-CareerIQ is an AI-powered **career-intelligence web app** built as a final-year
+CareerAI is an AI-powered **career-intelligence web app** built as a final-year
 B.E. Computer Science project. This repository contains the **frontend only**,
 designed to connect to a separate Node/Express/MongoDB backend (built by a
 teammate). It deliberately contains **no backend logic or database code** — only
