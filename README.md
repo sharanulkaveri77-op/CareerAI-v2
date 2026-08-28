@@ -1,4 +1,6 @@
-# CareerAI — Career Intelligence Platform (Frontend)
+# CareerAI — Career Intelligence Platform
+
+> 🚀 **Live Demo:** [https://careerai-v2.vercel.app](https://careerai-v2.vercel.app)
 
 CareerAI is an AI-powered **career-intelligence web app** built as a final-year
 B.E. Computer Science project. This repository contains the **frontend only**,
