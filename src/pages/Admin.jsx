@@ -11,6 +11,9 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
+import Logo from '../components/Logo'
+import { Moon, Sun } from 'lucide-react'
 import { Spinner, Skeleton, ErrorState, EmptyState } from '../components/Feedback'
 import {
   getAdminSummary,
@@ -34,18 +37,13 @@ const TABS = [
 
 function AdminShell({ children }) {
   const { logout } = useAuth()
+  const { isLight, toggleTheme } = useTheme()
   const navigate = useNavigate()
   return (
     <div className="min-h-screen flex">
       <aside className="fixed inset-y-0 left-0 w-60 bg-base-850 border-r border-white/5 flex flex-col">
         <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-purple shadow-glow-purple">
-            <Shield size={22} className="text-white" />
-          </div>
-          <div>
-            <p className="text-white font-bold leading-tight">CareerIQ</p>
-            <p className="text-[10px] tracking-widest text-accent-light/80">ADMIN</p>
-          </div>
+          <Logo size={42} withWordmark subtitle="Admin" />
         </div>
         <nav className="px-3">
           <div className="nav-item nav-item-active">
@@ -72,10 +70,18 @@ function AdminShell({ children }) {
               <Shield size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-white font-semibold leading-tight">Admin Portal</h1>
+              <h1 className="text-heading font-semibold leading-tight">Admin Portal</h1>
               <p className="text-xs text-gray-500">Manage students, interviews, and learning content</p>
             </div>
           </div>
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 text-gray-400 hover:text-heading hover:bg-white/5 transition"
+            title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
+            aria-label="Toggle theme"
+          >
+            {isLight ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
         </header>
         <main className="p-8">{children}</main>
       </div>
@@ -97,7 +103,7 @@ function StatTile({ icon: Icon, label, value, color }) {
         <Icon size={20} className="text-white" />
       </div>
       <p className="mt-4 text-xs uppercase tracking-wider text-gray-400">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+      <p className="mt-1 text-2xl font-bold text-heading">{value}</p>
     </div>
   )
 }
@@ -131,7 +137,7 @@ function ListStub({ fetcher, emptyText, columns }) {
       {rows.map((r, i) => (
         <div key={i} className="p-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-white font-medium">{r.name || r.title || r.student || 'Item'}</p>
+            <p className="text-sm text-heading font-medium">{r.name || r.title || r.student || 'Item'}</p>
             {r.subtitle && <p className="text-xs text-gray-500">{r.subtitle}</p>}
           </div>
           {r.meta && <span className="text-xs text-gray-400">{r.meta}</span>}
@@ -182,7 +188,7 @@ export default function Admin() {
               'px-4 py-2 rounded-xl text-sm font-medium transition ' +
               (tab === t.key
                 ? 'bg-gradient-purple text-white shadow-glow-purple'
-                : 'bg-white/5 text-gray-400 hover:text-white')
+                : 'bg-white/5 text-gray-400 hover:text-heading')
             }
           >
             {t.label}
@@ -200,7 +206,7 @@ export default function Admin() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             <div className="card p-6">
-              <h3 className="font-semibold text-white mb-3">Upcoming Interviews</h3>
+              <h3 className="font-semibold text-heading mb-3">Upcoming Interviews</h3>
               <ListStub
                 fetcher={getInterviews}
                 emptyText="No upcoming interviews scheduled."
@@ -208,7 +214,7 @@ export default function Admin() {
             </div>
             <div className="card p-6">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-white">Recent Students</h3>
+                <h3 className="font-semibold text-heading">Recent Students</h3>
                 <ArrowUpRight size={16} className="text-gray-500" />
               </div>
               {summaryLoading ? (

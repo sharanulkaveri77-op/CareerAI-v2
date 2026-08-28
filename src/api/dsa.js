@@ -1,0 +1,360 @@
+const LOCAL_DSA_KEY = 'careeriq_dsa_solved'
+
+export const DSA_CATEGORIES = [
+  'All',
+  'Arrays & Hashing',
+  'Two Pointers',
+  'Sliding Window',
+  'Stack & Queue',
+  'Binary Search',
+  'Linked List',
+  'Trees & Graphs',
+  'Dynamic Programming',
+]
+
+export const SAMPLE_DSA_PROBLEMS = [
+  // Arrays & Hashing
+  {
+    id: 'dsa-1',
+    title: 'Two Sum',
+    category: 'Arrays & Hashing',
+    difficulty: 'Easy',
+    acceptance: '52%',
+    description: 'Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to target.',
+    example: 'Input: nums = [2,7,11,15], target = 9 \nOutput: [0,1]',
+    hint: 'Use a Hash Map to store the complement (target - nums[i]) as you iterate through the array in O(n) time.',
+    solution: 'function twoSum(nums, target) {\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const diff = target - nums[i];\n    if (map.has(diff)) return [map.get(diff), i];\n    map.set(nums[i], i);\n  }\n  return [];\n}',
+  },
+  {
+    id: 'dsa-2',
+    title: 'Valid Anagram',
+    category: 'Arrays & Hashing',
+    difficulty: 'Easy',
+    acceptance: '64%',
+    description: 'Given two strings `s` and `t`, return `true` if `t` is an anagram of `s`, and `false` otherwise.',
+    example: 'Input: s = "anagram", t = "nagaram"\nOutput: true',
+    hint: 'Count the frequency of each character in both strings using a frequency map or fixed 26-element array.',
+    solution: 'function isAnagram(s, t) {\n  if (s.length !== t.length) return false;\n  const count = {};\n  for (let char of s) count[char] = (count[char] || 0) + 1;\n  for (let char of t) {\n    if (!count[char]) return false;\n    count[char]--;\n  }\n  return true;\n}',
+  },
+  {
+    id: 'dsa-3',
+    title: 'Contains Duplicate',
+    category: 'Arrays & Hashing',
+    difficulty: 'Easy',
+    acceptance: '61%',
+    description: 'Given an integer array `nums`, return `true` if any value appears at least twice in the array, and `false` if every element is distinct.',
+    example: 'Input: nums = [1,2,3,1]\nOutput: true',
+    hint: 'Insert elements into a Set and check if size differs from array length or if set already contains element.',
+    solution: 'function containsDuplicate(nums) {\n  return new Set(nums).size !== nums.length;\n}',
+  },
+  {
+    id: 'dsa-4',
+    title: 'Group Anagrams',
+    category: 'Arrays & Hashing',
+    difficulty: 'Medium',
+    acceptance: '67%',
+    description: 'Given an array of strings `strs`, group the anagrams together. You can return the answer in any order.',
+    example: 'Input: strs = ["eat","tea","tan","ate","nat","bat"]\nOutput: [["bat"],["nat","tan"],["ate","eat","tea"]]',
+    hint: 'Sort each string to use as a key in a Hash Map mapping sorted key -> list of original strings.',
+    solution: 'function groupAnagrams(strs) {\n  const map = {};\n  for (let str of strs) {\n    const key = str.split("").sort().join("");\n    if (!map[key]) map[key] = [];\n    map[key].push(str);\n  }\n  return Object.values(map);\n}',
+  },
+  {
+    id: 'dsa-5',
+    title: 'Top K Frequent Elements',
+    category: 'Arrays & Hashing',
+    difficulty: 'Medium',
+    acceptance: '63%',
+    description: 'Given an integer array `nums` and an integer `k`, return the `k` most frequent elements.',
+    example: 'Input: nums = [1,1,1,2,2,3], k = 2\nOutput: [1,2]',
+    hint: 'Use Bucket Sort where index represents frequency, or a Min-Heap of size k.',
+    solution: 'function topKFrequent(nums, k) {\n  const count = {};\n  for (let n of nums) count[n] = (count[n] || 0) + 1;\n  return Object.keys(count).sort((a, b) => count[b] - count[a]).slice(0, k).map(Number);\n}',
+  },
+  {
+    id: 'dsa-6',
+    title: 'Product of Array Except Self',
+    category: 'Arrays & Hashing',
+    difficulty: 'Medium',
+    acceptance: '65%',
+    description: 'Given an integer array `nums`, return an array `answer` such that `answer[i]` is equal to the product of all the elements of `nums` except `nums[i]`. Must run in O(n) without division.',
+    example: 'Input: nums = [1,2,3,4]\nOutput: [24,12,8,6]',
+    hint: 'Compute prefix products in a first pass, then multiply by suffix products in a second pass.',
+    solution: 'function productExceptSelf(nums) {\n  const res = new Array(nums.length).fill(1);\n  let prefix = 1;\n  for (let i = 0; i < nums.length; i++) {\n    res[i] = prefix;\n    prefix *= nums[i];\n  }\n  let suffix = 1;\n  for (let i = nums.length - 1; i >= 0; i--) {\n    res[i] *= suffix;\n    suffix *= nums[i];\n  }\n  return res;\n}',
+  },
+
+  // Two Pointers
+  {
+    id: 'dsa-7',
+    title: 'Valid Palindrome',
+    category: 'Two Pointers',
+    difficulty: 'Easy',
+    acceptance: '48%',
+    description: 'A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.',
+    example: 'Input: s = "A man, a plan, a canal: Panama"\nOutput: true',
+    hint: 'Use two pointers starting from left and right ends of the cleaned string.',
+    solution: 'function isPalindrome(s) {\n  const clean = s.toLowerCase().replace(/[^a-z0-9]/g, "");\n  let left = 0, right = clean.length - 1;\n  while (left < right) {\n    if (clean[left] !== clean[right]) return false;\n    left++; right--;\n  }\n  return true;\n}',
+  },
+  {
+    id: 'dsa-8',
+    title: 'Two Sum II - Input Array Is Sorted',
+    category: 'Two Pointers',
+    difficulty: 'Medium',
+    acceptance: '60%',
+    description: 'Given a 1-indexed array of integers `numbers` that is already sorted in non-decreasing order, find two numbers such that they add up to a specific target number.',
+    example: 'Input: numbers = [2,7,11,15], target = 9\nOutput: [1,2]',
+    hint: 'Since array is sorted, if sum < target increment left pointer; if sum > target decrement right pointer.',
+    solution: 'function twoSumSorted(numbers, target) {\n  let l = 0, r = numbers.length - 1;\n  while (l < r) {\n    const sum = numbers[l] + numbers[r];\n    if (sum === target) return [l + 1, r + 1];\n    if (sum < target) l++; else r--;\n  }\n  return [];\n}',
+  },
+  {
+    id: 'dsa-9',
+    title: 'Container With Most Water',
+    category: 'Two Pointers',
+    difficulty: 'Medium',
+    acceptance: '55%',
+    description: 'You are given an integer array `height` of length n. Find two lines that together with the x-axis form a container containing the most water.',
+    example: 'Input: height = [1,8,6,2,5,4,8,3,7]\nOutput: 49',
+    hint: 'Start with pointers at both ends. Compute area and move the pointer with smaller height.',
+    solution: 'function maxArea(height) {\n  let max = 0, l = 0, r = height.length - 1;\n  while (l < r) {\n    const area = Math.min(height[l], height[r]) * (r - l);\n    max = Math.max(max, area);\n    if (height[l] < height[r]) l++; else r--;\n  }\n  return max;\n}',
+  },
+  {
+    id: 'dsa-10',
+    title: '3Sum',
+    category: 'Two Pointers',
+    difficulty: 'Medium',
+    acceptance: '33%',
+    description: 'Given an integer array `nums`, return all the triplets `[nums[i], nums[j], nums[k]]` such that `i != j`, `i != k`, and `j != k`, and `nums[i] + nums[j] + nums[k] == 0`.',
+    example: 'Input: nums = [-1,0,1,2,-1,-4]\nOutput: [[-1,-1,2],[-1,0,1]]',
+    hint: 'Sort the array first. Loop through `nums[i]` and use Two Pointers on the remaining array.',
+    solution: 'function threeSum(nums) {\n  nums.sort((a, b) => a - b);\n  const res = [];\n  for (let i = 0; i < nums.length - 2; i++) {\n    if (i > 0 && nums[i] === nums[i - 1]) continue;\n    let l = i + 1, r = nums.length - 1;\n    while (l < r) {\n      const sum = nums[i] + nums[l] + nums[r];\n      if (sum === 0) {\n        res.push([nums[i], nums[l], nums[r]]);\n        while (l < r && nums[l] === nums[l + 1]) l++;\n        while (l < r && nums[r] === nums[r - 1]) r--;\n        l++; r--;\n      } else if (sum < 0) l++; else r--;\n    }\n  }\n  return res;\n}',
+  },
+
+  // Sliding Window
+  {
+    id: 'dsa-11',
+    title: 'Best Time to Buy and Sell Stock',
+    category: 'Sliding Window',
+    difficulty: 'Easy',
+    acceptance: '54%',
+    description: 'Find the maximum profit you can achieve by buying on one day and selling on a future day.',
+    example: 'Input: prices = [7,1,5,3,6,4]\nOutput: 5 (Buy on day 2 at 1, sell at 6)',
+    hint: 'Track min price seen so far and max profit at each step in O(n) time.',
+    solution: 'function maxProfit(prices) {\n  let minPrice = Infinity, maxProf = 0;\n  for (let p of prices) {\n    minPrice = Math.min(minPrice, p);\n    maxProf = Math.max(maxProf, p - minPrice);\n  }\n  return maxProf;\n}',
+  },
+  {
+    id: 'dsa-12',
+    title: 'Longest Substring Without Repeating Characters',
+    category: 'Sliding Window',
+    difficulty: 'Medium',
+    acceptance: '35%',
+    description: 'Given a string `s`, find the length of the longest substring without repeating characters.',
+    example: 'Input: s = "abcabcbb"\nOutput: 3 (s = "abc")',
+    hint: 'Use sliding window with a Set to keep track of unique characters in current window.',
+    solution: 'function lengthOfLongestSubstring(s) {\n  let set = new Set(), l = 0, max = 0;\n  for (let r = 0; r < s.length; r++) {\n    while (set.has(s[r])) { set.delete(s[l]); l++; }\n    set.add(s[r]);\n    max = Math.max(max, r - l + 1);\n  }\n  return max;\n}',
+  },
+  {
+    id: 'dsa-13',
+    title: 'Longest Repeating Character Replacement',
+    category: 'Sliding Window',
+    difficulty: 'Medium',
+    acceptance: '52%',
+    description: 'Choose a string and replace up to `k` characters to form the longest substring containing identical letters.',
+    example: 'Input: s = "ABAB", k = 2\nOutput: 4',
+    hint: 'Window size - max character frequency <= k.',
+    solution: 'function characterReplacement(s, k) {\n  const count = {}; let l = 0, maxFreq = 0, maxLen = 0;\n  for (let r = 0; r < s.length; r++) {\n    count[s[r]] = (count[s[r]] || 0) + 1;\n    maxFreq = Math.max(maxFreq, count[s[r]]);\n    if ((r - l + 1) - maxFreq > k) { count[s[l]]--; l++; }\n    maxLen = Math.max(maxLen, r - l + 1);\n  }\n  return maxLen;\n}',
+  },
+
+  // Stack & Queue
+  {
+    id: 'dsa-14',
+    title: 'Valid Parentheses',
+    category: 'Stack & Queue',
+    difficulty: 'Easy',
+    acceptance: '40%',
+    description: 'Given a string `s` containing just `()[]{}`, determine if input string is valid.',
+    example: 'Input: s = "()[]{}"\nOutput: true',
+    hint: 'Push open brackets onto stack; pop and match when closing bracket appears.',
+    solution: 'function isValid(s) {\n  const stack = [];\n  const map = { ")": "(", "]": "[", "}": "{" };\n  for (let char of s) {\n    if (map[char]) {\n      if (stack.pop() !== map[char]) return false;\n    } else stack.push(char);\n  }\n  return stack.length === 0;\n}',
+  },
+  {
+    id: 'dsa-15',
+    title: 'Min Stack',
+    category: 'Stack & Queue',
+    difficulty: 'Medium',
+    acceptance: '53%',
+    description: 'Design a stack that supports push, pop, top, and retrieving minimum element in O(1) time.',
+    example: 'push(-2), push(0), push(-3), getMin() -> -3, pop(), getMin() -> -2',
+    hint: 'Maintain a secondary minStack that tracks the minimum value at each stack depth.',
+    solution: 'class MinStack {\n  constructor() { this.stack = []; this.minStack = []; }\n  push(val) {\n    this.stack.push(val);\n    const min = this.minStack.length ? Math.min(val, this.minStack[this.minStack.length - 1]) : val;\n    this.minStack.push(min);\n  }\n  pop() { this.stack.pop(); this.minStack.pop(); }\n  top() { return this.stack[this.stack.length - 1]; }\n  getMin() { return this.minStack[this.minStack.length - 1]; }\n}',
+  },
+  {
+    id: 'dsa-16',
+    title: 'Evaluate Reverse Polish Notation',
+    category: 'Stack & Queue',
+    difficulty: 'Medium',
+    acceptance: '46%',
+    description: 'Evaluate the value of an arithmetic expression in Reverse Polish Notation (Postfix).',
+    example: 'Input: tokens = ["2","1","+","3","*"]\nOutput: 9 ((2 + 1) * 3)',
+    hint: 'Push operands to stack; when operator appears, pop top 2 operands and apply operator.',
+    solution: 'function evalRPN(tokens) {\n  const stack = [];\n  for (let t of tokens) {\n    if (!isNaN(t)) stack.push(Number(t));\n    else {\n      const b = stack.pop(), a = stack.pop();\n      if (t === "+") stack.push(a + b);\n      else if (t === "-") stack.push(a - b);\n      else if (t === "*") stack.push(a * b);\n      else if (t === "/") stack.push(Math.trunc(a / b));\n    }\n  }\n  return stack.pop();\n}',
+  },
+
+  // Binary Search
+  {
+    id: 'dsa-17',
+    title: 'Binary Search',
+    category: 'Binary Search',
+    difficulty: 'Easy',
+    acceptance: '56%',
+    description: 'Given an array of integers `nums` sorted in ascending order and a `target`, write a function to search `target` in `nums` in O(log n) time.',
+    example: 'Input: nums = [-1,0,3,5,9,12], target = 9\nOutput: 4',
+    hint: 'Maintain left and right pointers; compute mid = Math.floor((left + right)/2).',
+    solution: 'function search(nums, target) {\n  let l = 0, r = nums.length - 1;\n  while (l <= r) {\n    let m = Math.floor((l + r) / 2);\n    if (nums[m] === target) return m;\n    if (nums[m] < target) l = m + 1; else r = m - 1;\n  }\n  return -1;\n}',
+  },
+  {
+    id: 'dsa-18',
+    title: 'Search a 2D Matrix',
+    category: 'Binary Search',
+    difficulty: 'Medium',
+    acceptance: '49%',
+    description: 'Write an efficient algorithm that searches for a value `target` in an `m x n` integer matrix.',
+    example: 'Input: matrix = [[1,3,5,7],[10,11,16,20],[23,30,34,60]], target = 3\nOutput: true',
+    hint: 'Treat 2D matrix of m x n as 1D array of length m * n; row = Math.floor(mid / n), col = mid % n.',
+    solution: 'function searchMatrix(matrix, target) {\n  const m = matrix.length, n = matrix[0].length;\n  let l = 0, r = m * n - 1;\n  while (l <= r) {\n    let mid = Math.floor((l + r) / 2);\n    let val = matrix[Math.floor(mid / n)][mid % n];\n    if (val === target) return true;\n    if (val < target) l = mid + 1; else r = mid - 1;\n  }\n  return false;\n}',
+  },
+  {
+    id: 'dsa-19',
+    title: 'Search in Rotated Sorted Array',
+    category: 'Binary Search',
+    difficulty: 'Medium',
+    acceptance: '40%',
+    description: 'Given a rotated sorted array `nums` and a `target`, return index of `target` or -1 in O(log n).',
+    example: 'Input: nums = [4,5,6,7,0,1,2], target = 0\nOutput: 4',
+    hint: 'One half (left or right) of mid will always be strictly sorted.',
+    solution: 'function searchRotated(nums, target) {\n  let l = 0, r = nums.length - 1;\n  while (l <= r) {\n    let m = Math.floor((l + r) / 2);\n    if (nums[m] === target) return m;\n    if (nums[l] <= nums[m]) {\n      if (nums[l] <= target && target < nums[m]) r = m - 1; else l = m + 1;\n    } else {\n      if (nums[m] < target && target <= nums[r]) l = m + 1; else r = m - 1;\n    }\n  }\n  return -1;\n}',
+  },
+
+  // Linked List
+  {
+    id: 'dsa-20',
+    title: 'Reverse Linked List',
+    category: 'Linked List',
+    difficulty: 'Easy',
+    acceptance: '76%',
+    description: 'Given the head of a singly linked list, reverse the list, and return the reversed list.',
+    example: 'Input: head = [1,2,3,4,5]\nOutput: [5,4,3,2,1]',
+    hint: 'Maintain prev, curr, and next pointers in a single pass.',
+    solution: 'function reverseList(head) {\n  let prev = null, curr = head;\n  while (curr) {\n    let next = curr.next;\n    curr.next = prev;\n    prev = curr;\n    curr = next;\n  }\n  return prev;\n}',
+  },
+  {
+    id: 'dsa-21',
+    title: 'Merge Two Sorted Lists',
+    category: 'Linked List',
+    difficulty: 'Easy',
+    acceptance: '63%',
+    description: 'Merge two sorted linked lists and return it as a new sorted list.',
+    example: 'Input: l1 = [1,2,4], l2 = [1,3,4]\nOutput: [1,1,2,3,4,4]',
+    hint: 'Use a dummy head node and compare values of list1 and list2.',
+    solution: 'function mergeTwoLists(l1, l2) {\n  let dummy = { next: null }, curr = dummy;\n  while (l1 && l2) {\n    if (l1.val < l2.val) { curr.next = l1; l1 = l1.next; }\n    else { curr.next = l2; l2 = l2.next; }\n    curr = curr.next;\n  }\n  curr.next = l1 || l2;\n  return dummy.next;\n}',
+  },
+  {
+    id: 'dsa-22',
+    title: 'Linked List Cycle',
+    category: 'Linked List',
+    difficulty: 'Easy',
+    acceptance: '49%',
+    description: 'Determine if the linked list has a cycle in it using Floyd’s Cycle-Finding algorithm.',
+    example: 'Input: head = [3,2,0,-4], pos = 1\nOutput: true',
+    hint: 'Use fast and slow pointers. If fast meets slow, a cycle exists.',
+    solution: 'function hasCycle(head) {\n  let slow = head, fast = head;\n  while (fast && fast.next) {\n    slow = slow.next;\n    fast = fast.next.next;\n    if (slow === fast) return true;\n  }\n  return false;\n}',
+  },
+
+  // Trees & Graphs
+  {
+    id: 'dsa-23',
+    title: 'Invert Binary Tree',
+    category: 'Trees & Graphs',
+    difficulty: 'Easy',
+    acceptance: '75%',
+    description: 'Given the root of a binary tree, invert the tree, and return its root.',
+    example: 'Input: root = [4,2,7,1,3,6,9]\nOutput: [4,7,2,9,6,3,1]',
+    hint: 'Swap left and right children recursively.',
+    solution: 'function invertTree(root) {\n  if (!root) return null;\n  let temp = root.left;\n  root.left = invertTree(root.right);\n  root.right = invertTree(temp);\n  return root;\n}',
+  },
+  {
+    id: 'dsa-24',
+    title: 'Maximum Depth of Binary Tree',
+    category: 'Trees & Graphs',
+    difficulty: 'Easy',
+    acceptance: '74%',
+    description: 'Given the root of a binary tree, return its maximum depth.',
+    example: 'Input: root = [3,9,20,null,null,15,7]\nOutput: 3',
+    hint: 'Recursive DFS: maxDepth = 1 + Math.max(depth(left), depth(right)).',
+    solution: 'function maxDepth(root) {\n  if (!root) return 0;\n  return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));\n}',
+  },
+  {
+    id: 'dsa-25',
+    title: 'Number of Islands',
+    category: 'Trees & Graphs',
+    difficulty: 'Medium',
+    acceptance: '58%',
+    description: 'Given an m x n 2D binary grid representing land ("1") and water ("0"), return the number of islands.',
+    example: 'Input: grid = [["1","1","0"],["1","1","0"],["0","0","1"]]\nOutput: 2',
+    hint: 'Iterate over grid; when "1" is found, increment count and run DFS/BFS to sink connected "1"s to "0".',
+    solution: 'function numIslands(grid) {\n  let count = 0;\n  function dfs(r, c) {\n    if (r < 0 || c < 0 || r >= grid.length || c >= grid[0].length || grid[r][c] === "0") return;\n    grid[r][c] = "0";\n    dfs(r+1, c); dfs(r-1, c); dfs(r, c+1); dfs(r, c-1);\n  }\n  for (let r = 0; r < grid.length; r++) {\n    for (let c = 0; c < grid[0].length; c++) {\n      if (grid[r][c] === "1") { count++; dfs(r, c); }\n    }\n  }\n  return count;\n}',
+  },
+
+  // Dynamic Programming
+  {
+    id: 'dsa-26',
+    title: 'Climbing Stairs',
+    category: 'Dynamic Programming',
+    difficulty: 'Easy',
+    acceptance: '53%',
+    description: 'You are climbing a staircase. It takes n steps to reach the top. Each time you can climb 1 or 2 steps. How many distinct ways can you climb to the top?',
+    example: 'Input: n = 3\nOutput: 3 (1+1+1, 1+2, 2+1)',
+    hint: 'This problem reduces to Fibonacci sequence: dp[i] = dp[i-1] + dp[i-2].',
+    solution: 'function climbStairs(n) {\n  if (n <= 2) return n;\n  let a = 1, b = 2;\n  for (let i = 3; i <= n; i++) {\n    let c = a + b;\n    a = b; b = c;\n  }\n  return b;\n}',
+  },
+  {
+    id: 'dsa-27',
+    title: 'House Robber',
+    category: 'Dynamic Programming',
+    difficulty: 'Medium',
+    acceptance: '50%',
+    description: 'You are a professional robber planning to rob houses along a street. Each house has a certain amount of money stashed. You cannot rob adjacent houses.',
+    example: 'Input: nums = [1,2,3,1]\nOutput: 4 (Rob house 1 and house 3)',
+    hint: 'dp[i] = Math.max(dp[i-1], dp[i-2] + nums[i]).',
+    solution: 'function rob(nums) {\n  let rob1 = 0, rob2 = 0;\n  for (let n of nums) {\n    let temp = Math.max(n + rob1, rob2);\n    rob1 = rob2;\n    rob2 = temp;\n  }\n  return rob2;\n}',
+  },
+  {
+    id: 'dsa-28',
+    title: 'Coin Change',
+    category: 'Dynamic Programming',
+    difficulty: 'Medium',
+    acceptance: '43%',
+    description: 'Given an integer array `coins` representing coins of different denominations and an integer `amount`, return fewest number of coins needed to make up amount.',
+    example: 'Input: coins = [1,2,5], amount = 11\nOutput: 3 (5 + 5 + 1)',
+    hint: 'dp[i] = min(dp[i], dp[i - coin] + 1) initialized to Infinity.',
+    solution: 'function coinChange(coins, amount) {\n  const dp = new Array(amount + 1).fill(Infinity);\n  dp[0] = 0;\n  for (let i = 1; i <= amount; i++) {\n    for (let c of coins) {\n      if (i - c >= 0) dp[i] = Math.min(dp[i], 1 + dp[i - c]);\n    }\n  }\n  return dp[amount] === Infinity ? -1 : dp[amount];\n}',
+  },
+]
+
+export function getSolvedProblems() {
+  try {
+    const raw = localStorage.getItem(LOCAL_DSA_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export function toggleSolveProblem(id) {
+  const current = getSolvedProblems()
+  const exists = current.includes(id)
+  const updated = exists ? current.filter((x) => x !== id) : [...current, id]
+  try {
+    localStorage.setItem(LOCAL_DSA_KEY, JSON.stringify(updated))
+  } catch {
+    /* noop */
+  }
+  return updated
+}

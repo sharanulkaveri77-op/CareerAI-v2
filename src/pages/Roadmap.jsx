@@ -64,7 +64,7 @@ export default function Roadmap() {
             <div className="flex items-center justify-center w-20 h-20 rounded-full bg-accent/10 mb-4">
               <MapPinned size={32} className="text-accent-light" />
             </div>
-            <p className="text-white font-semibold">No roadmap generated yet</p>
+            <p className="text-heading font-semibold">No roadmap generated yet</p>
             <p className="text-sm text-gray-500 mt-1 max-w-sm">
               Enter your current role and target role, then let AI create a
               personalized step-by-step career transition plan.
@@ -92,7 +92,7 @@ export default function Roadmap() {
               </div>
               <div className="card p-5">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="font-semibold text-white">{stage.title}</h3>
+                  <h3 className="font-semibold text-heading">{stage.title}</h3>
                   {stage.duration && (
                     <span className="badge bg-accent/15 text-accent-light">
                       {stage.duration}

@@ -10,7 +10,7 @@ export function EmptyState({ icon: Icon, title, caption, children }) {
       <div className="flex items-center justify-center w-20 h-20 rounded-full bg-accent/10 mb-4">
         {Icon && <Icon size={32} className="text-accent-light" />}
       </div>
-      <p className="text-white font-semibold">{title}</p>
+      <p className="text-heading font-semibold">{title}</p>
       {caption && <p className="text-sm text-gray-500 mt-1 max-w-sm">{caption}</p>}
       {children && <div className="mt-4">{children}</div>}
     </div>

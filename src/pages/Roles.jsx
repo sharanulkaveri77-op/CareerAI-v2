@@ -21,12 +21,12 @@ function RoleCard({ role, saved, onSave, onRemove }) {
   return (
     <div className="card card-hover p-5 flex flex-col">
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-semibold text-white">{role.title}</h3>
+        <h3 className="font-semibold text-heading">{role.title}</h3>
         <button
           onClick={() => (saved ? onRemove(role) : onSave(role))}
           title={saved ? 'Remove' : 'Save'}
           className={
-            'shrink-0 ' + (saved ? 'text-accent-light' : 'text-gray-500 hover:text-white')
+            'shrink-0 ' + (saved ? 'text-accent-light' : 'text-gray-500 hover:text-heading')
           }
         >
           {saved ? <Bookmark size={18} /> : <BookmarkPlus size={18} />}
@@ -97,8 +97,13 @@ export default function Roles() {
   }
 
   const onRemove = async (role) => {
+    // Search-result cards don't carry the DB id — resolve via the saved row.
+    const row = saved.find(
+      (s) => s._id === role._id || s.title === role.title
+    )
+    if (!row?._id) return
     try {
-      await removeSavedRole(role._id)
+      await removeSavedRole(row._id)
       setSaved((prev) =>
         prev.filter((s) => s._id !== role._id && s.title !== role.title)
       )
@@ -160,7 +165,7 @@ export default function Roles() {
             <div className="flex items-center justify-center w-20 h-20 rounded-full bg-accent/10 mb-4">
               <Search size={32} className="text-accent-light" />
             </div>
-            <p className="text-white font-semibold">Search roles to begin</p>
+            <p className="text-heading font-semibold">Search roles to begin</p>
             <p className="text-sm text-gray-500 mt-1 max-w-sm">
               Use the search bar above to find AI-curated roles matched to your
               interests.
@@ -181,7 +186,7 @@ export default function Roles() {
             <div className="flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 mb-3">
               <BookmarkPlus size={26} className="text-accent-light" />
             </div>
-            <p className="text-white font-semibold">No saved roles</p>
+            <p className="text-heading font-semibold">No saved roles</p>
             <p className="text-sm text-gray-500 mt-1">
               Search and save roles you're interested in to track them here.
             </p>

@@ -18,7 +18,7 @@ export default function StatCard({ icon: Icon, label, value, caption, accent = '
       <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
         {label}
       </p>
-      <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+      <p className="mt-1 text-2xl font-bold text-heading">{value}</p>
       {caption && <p className="mt-1 text-xs text-gray-500">{caption}</p>}
     </div>
   )

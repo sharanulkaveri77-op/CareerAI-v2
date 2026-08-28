@@ -2,8 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ----------------------------------------------------------- theme tokens */
 :root {
   color-scheme: dark;
+  /* surfaces */
+  --b-900: 11 10 16;
+  --b-850: 14 13 20;
+  --b-800: 21 19 32;
+  --b-750: 26 23 38;
+  /* text */
+  --c-heading: 255 255 255;
+  --g-100: 243 244 246;
+  --g-200: 229 231 235;
+  --g-300: 209 213 219;
+  --g-400: 156 163 175;
+  --g-500: 107 114 128;
+  --g-600: 75 85 99;
+  --g-700: 55 65 81;
+}
+
+html.theme-light {
+  color-scheme: light;
+  /* surfaces — soft lavender-tinted neutrals */
+  --b-900: 244 245 250;
+  --b-850: 255 255 255;
+  --b-800: 255 255 255;
+  --b-750: 247 248 253;
+  /* text */
+  --c-heading: 23 20 38;
+  --g-100: 31 27 51;
+  --g-200: 52 48 71;
+  --g-300: 74 70 95;
+  --g-400: 110 106 132;
+  --g-500: 140 136 160;
+  --g-600: 168 165 185;
+  --g-700: 190 188 204;
 }
 
 html,
@@ -21,6 +54,24 @@ body {
     ),
     radial-gradient(50% 50% at 0% 0%, rgba(168, 85, 247, 0.08), transparent);
   background-attachment: fixed;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+html.theme-light body {
+  background-image: radial-gradient(
+      60% 60% at 80% -10%,
+      rgba(124, 58, 237, 0.09),
+      transparent
+    ),
+    radial-gradient(50% 50% at 0% 0%, rgba(168, 85, 247, 0.06), transparent);
+}
+
+/* Translucent white utilities flip to translucent ink in light mode */
+html.theme-light [class*='border-white/'] {
+  border-color: rgb(23 20 38 / 0.08);
+}
+html.theme-light [class*='bg-white/'] {
+  background-color: rgb(23 20 38 / 0.05);
 }
 
 /* Custom scrollbar */
@@ -38,10 +89,27 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #3a3450;
 }
+html.theme-light ::-webkit-scrollbar-thumb {
+  background: #d6d4e4;
+}
+html.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #c2bfd4;
+}
+
+::selection {
+  background: rgba(124, 58, 237, 0.35);
+  color: #fff;
+}
 
 @layer components {
   .card {
     @apply bg-base-800 border border-white/5 rounded-2xl shadow-card;
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+  }
+  .theme-light .card {
+    box-shadow:
+      0 1px 2px rgb(23 20 38 / 0.05),
+      0 12px 32px -18px rgb(23 20 38 / 0.16);
   }
   .card-hover {
     @apply transition-all duration-200 hover:bg-base-750 hover:border-white/10;
@@ -57,6 +125,9 @@ body {
       text-sm font-semibold text-gray-200 bg-transparent border border-white/10
       hover:bg-white/5 transition;
   }
+  html.theme-light .btn-ghost {
+    @apply text-gray-600 hover:text-gray-200;
+  }
   .btn-teal {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
       text-sm font-semibold text-white bg-teal hover:opacity-90 transition
@@ -67,11 +138,14 @@ body {
       text-sm text-gray-100 placeholder-gray-500 outline-none
       focus:border-accent/60 focus:ring-2 focus:ring-accent/30 transition;
   }
+  html.theme-light .input {
+    @apply bg-base-750/80;
+  }
   .label {
     @apply block text-xs font-medium text-gray-400 mb-1.5;
   }
   .page-title {
-    @apply text-[28px] font-bold text-white tracking-tight;
+    @apply text-[28px] font-bold text-heading tracking-tight;
   }
   .page-subtitle {
     @apply text-sm text-gray-400 mt-1;
@@ -85,7 +159,7 @@ body {
       text-gray-400 hover:text-gray-200 hover:bg-white/5 transition cursor-pointer;
   }
   .nav-item-active {
-    @apply text-white bg-accent/15 border-l-2 border-accent relative;
+    @apply text-heading bg-accent/15 border-l-2 border-accent relative;
   }
 }
 
@@ -104,8 +178,48 @@ body {
   );
   animation: shimmer 1.4s infinite;
 }
+html.theme-light .skeleton {
+  @apply bg-black/5;
+}
+html.theme-light .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(23, 20, 38, 0.07),
+    transparent
+  );
+}
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
   }
+}
+
+/* theme toggle icon spin */
+.theme-star {
+  transition: transform 0.4s ease;
+}
+.theme-star:active {
+  transform: rotate(180deg) scale(0.9);
+}
+
+/* login page decorative grid */
+.login-grid-bg {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 90% 80% at 30% 40%, black 35%, transparent 75%);
+}
+
+/* mic level bar */
+.mic-bar-track {
+  @apply flex items-end gap-[3px] h-8;
+}
+.mic-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #a855f7, #7c3aed);
+  height: 20%;
+  transition: height 0.08s ease-out;
 }

@@ -22,7 +22,7 @@ export default function Modal({ open, onClose, title, children }) {
       />
       <div className="relative card w-full max-w-md p-6 z-10">
         {title && (
-          <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+          <h3 className="text-lg font-semibold text-heading mb-4">{title}</h3>
         )}
         {children}
       </div>

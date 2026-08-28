@@ -3,11 +3,16 @@ import { useForm } from 'react-hook-form'
 import {
   Bot,
   Video,
+  VideoOff,
   Mic,
-  Send,
+  MicOff,
+  Volume2,
+  VolumeX,
   ArrowRight,
   RotateCcw,
   CheckCircle2,
+  Gauge,
+  AlertTriangle,
 } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import PageHeader from '../components/PageHeader'
@@ -20,6 +25,160 @@ import {
 
 const TYPES = ['Technical', 'Behavioral', 'System Design', 'HR']
 
+const FILLER_WORDS =
+  /\b(um+|uh+|er+|ah+|like|basically|actually|literally|you know|i mean|sort of|kind of)\b/gi
+
+const SpeechRecognitionClass =
+  typeof window !== 'undefined' &&
+  (window.SpeechRecognition || window.webkitSpeechRecognition)
+
+function countFillers(text) {
+  const matches = text.match(FILLER_WORDS)
+  return matches ? matches.length : 0
+}
+
+/* ------------------------------ Voice engine ------------------------------ */
+
+function useSpeechEngine({ onFinalText }) {
+  const [listening, setListening] = useState(false)
+  const [interim, setInterim] = useState('')
+  const [voiceError, setVoiceError] = useState('')
+  const recRef = useRef(null)
+  const wantListeningRef = useRef(false)
+
+  const ensureRec = () => {
+    if (!SpeechRecognitionClass) return null
+    if (recRef.current) return recRef.current
+    const rec = new SpeechRecognitionClass()
+    rec.continuous = true
+    rec.interimResults = true
+    rec.lang = 'en-US'
+
+    rec.onresult = (event) => {
+      let finalChunk = ''
+      let interimChunk = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i]
+        if (res.isFinal) finalChunk += res[0].transcript
+        else interimChunk += res[0].transcript
+      }
+      if (finalChunk.trim()) {
+        setInterim('')
+        onFinalText(finalChunk.trim())
+      } else {
+        setInterim(interimChunk)
+      }
+    }
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        setVoiceError('Microphone blocked — allow mic access in your browser.')
+        wantListeningRef.current = false
+        setListening(false)
+      } else if (e.error === 'no-speech') {
+        /* keep listening */
+      }
+    }
+    rec.onend = () => {
+      // Chrome stops after silence — restart while the user wants live input
+      if (wantListeningRef.current) {
+        try {
+          rec.start()
+        } catch {
+          setListening(false)
+        }
+      } else {
+        setListening(false)
+      }
+    }
+
+    recRef.current = rec
+    return rec
+  }
+
+  const start = () => {
+    const rec = ensureRec()
+    if (!rec) {
+      setVoiceError('Voice input is not supported in this browser.')
+      return
+    }
+    setVoiceError('')
+    wantListeningRef.current = true
+    try {
+      rec.start()
+      setListening(true)
+    } catch {
+      /* already started */
+      setListening(true)
+    }
+  }
+
+  const stop = () => {
+    wantListeningRef.current = false
+    setListening(false)
+    setInterim('')
+    try {
+      recRef.current?.stop()
+    } catch {
+      /* noop */
+    }
+  }
+
+  useEffect(
+    () => () => {
+      wantListeningRef.current = false
+      try {
+        recRef.current?.abort()
+      } catch {
+        /* noop */
+      }
+    },
+    []
+  )
+
+  return { listening, interim, voiceError, start, stop, supported: !!SpeechRecognitionClass }
+}
+
+/* --------------------------------- Meter ---------------------------------- */
+
+const BAR_COUNT = 16
+
+function MicMeter({ analyserRef }) {
+  const barsRef = useRef(null)
+
+  useEffect(() => {
+    let raf
+    const tick = () => {
+      raf = requestAnimationFrame(tick)
+      const analyser = analyserRef.current
+      const bars = barsRef.current?.children
+      if (!analyser || !bars) return
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      analyser.getByteFrequencyData(data)
+      const step = Math.floor(data.length / BAR_COUNT / 2)
+      for (let i = 0; i < BAR_COUNT; i++) {
+        let sum = 0
+        for (let j = 0; j < step; j++) sum += data[i * step + j] || 0
+        const level = Math.min(1, (sum / step / 255) * 2.2)
+        const bar = bars[i]
+        if (bar) bar.style.height = `${Math.max(12, level * 100)}%`
+        if (bar) bar.style.opacity = level > 0.08 ? '1' : '0.4'
+      }
+    }
+    tick()
+    return () => cancelAnimationFrame(raf)
+  }, [analyserRef])
+
+  return (
+    <div ref={barsRef} className="mic-bar-track">
+      {Array.from({ length: BAR_COUNT }).map((_, i) => (
+        <span key={i} className="mic-bar" />
+      ))}
+    </div>
+  )
+}
+
+/* --------------------------------- Page ----------------------------------- */
+
 export default function InterviewAI() {
   const [started, setStarted] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -31,8 +190,23 @@ export default function InterviewAI() {
   const [summary, setSummary] = useState(null)
   const [error, setError] = useState('')
 
+  // camera / mic
+  const [camState, setCamState] = useState('off') // off | on | denied
+  const [camEnabled, setCamEnabled] = useState(true)
+  const [ttsOn, setTtsOn] = useState(true)
+  const [elapsed, setElapsed] = useState(0)
+
   const videoRef = useRef(null)
   const streamRef = useRef(null)
+  const audioCtxRef = useRef(null)
+  const analyserRef = useRef(null)
+  const questionStartRef = useRef(Date.now())
+
+  const speech = useSpeechEngine({
+    onFinalText: (text) =>
+      setAnswer((prev) => (prev ? `${prev} ${text}` : text)),
+  })
+  const { listening, interim, voiceError, start: startVoice, stop: stopVoice } = speech
 
   const {
     register,
@@ -40,22 +214,85 @@ export default function InterviewAI() {
     formState: { errors },
   } = useForm({ defaultValues: { type: 'Technical' } })
 
-  // stop camera on unmount
+  /* ----------------------------- media handling ---------------------------- */
+
+  const setupMedia = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      })
+      streamRef.current = stream
+      setCamState('on')
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play().catch(() => {})
+      }
+      // mic level analyser
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const src = ctx.createMediaStreamSource(stream)
+        const analyser = ctx.createAnalyser()
+        analyser.fftSize = 256
+        src.connect(analyser)
+        audioCtxRef.current = ctx
+        analyserRef.current = analyser
+      } catch {
+        /* level meter optional */
+      }
+    } catch {
+      setCamState('denied')
+    }
+  }
+
+  const teardownMedia = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    audioCtxRef.current?.close().catch(() => {})
+    audioCtxRef.current = null
+    analyserRef.current = null
+    setCamState('off')
+  }
+
   useEffect(() => {
     return () => {
-      streamRef.current?.getTracks().forEach((t) => t.stop())
+      teardownMedia()
+      window.speechSynthesis?.cancel()
     }
   }, [])
 
-  const startCamera = async () => {
+  // session timer
+  useEffect(() => {
+    if (!started || ended) return undefined
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - questionStartRef.current) / 1000))
+    }, 500)
+    return () => clearInterval(id)
+  }, [started, ended])
+
+  // read each new question aloud
+  useEffect(() => {
+    if (!started || !ttsOn || !question) return
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      streamRef.current = stream
-      if (videoRef.current) videoRef.current.srcObject = stream
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(question)
+      utterance.rate = 1
+      utterance.pitch = 1
+      window.speechSynthesis.speak(utterance)
     } catch {
-      // no camera permission — placeholder avatar shows instead
+      /* TTS unsupported */
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question, ttsOn])
+
+  const toggleCamera = () => {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    track.enabled = !track.enabled
+    setCamEnabled(track.enabled)
   }
+
+  /* ------------------------------ interview flow --------------------------- */
 
   const onSubmitSetup = async (data) => {
     setError('')
@@ -63,23 +300,39 @@ export default function InterviewAI() {
       const res = await startInterview(data)
       const { sessionId: sid, question: q } = res.data
       setSessionId(sid)
-      setQuestion(q || 'Tell me about yourself.')
+      applyQuestion(q || 'Tell me about yourself.')
       setStarted(true)
-      startCamera()
+      setupMedia()
     } catch (e) {
       setError(e.userMessage || 'Could not start interview')
     }
   }
 
+  const applyQuestion = (q) => {
+    setQuestion(q)
+    setAnswer('')
+    setElapsed(0)
+    questionStartRef.current = Date.now()
+    speech.stop()
+  }
+
+  const buildStats = (ansText) => {
+    const words = ansText.trim() ? ansText.trim().split(/\s+/).length : 0
+    const seconds = Math.max(1, Math.round((Date.now() - questionStartRef.current) / 1000))
+    const wpm = Math.round((words / seconds) * 60)
+    return { words, seconds, wpm: Number.isFinite(wpm) ? wpm : 0, fillers: countFillers(ansText) }
+  }
+
   const onNext = async () => {
     if (!answer.trim()) return
     setAnswering(true)
+    stopVoice()
+    const stats = buildStats(answer)
     try {
       const res = await submitAnswer({ sessionId, question, answer })
       const fb = res.data?.feedback || res.data?.coachTip || ''
-      setFeedback((prev) => [...prev, { question, answer, tip: fb }])
-      setQuestion(res.data?.nextQuestion || '')
-      setAnswer('')
+      setFeedback((prev) => [...prev, { question, answer, tip: fb, stats }])
+      applyQuestion(res.data?.nextQuestion || '')
     } catch (e) {
       setError(e.userMessage || 'Failed to submit answer')
     } finally {
@@ -88,23 +341,64 @@ export default function InterviewAI() {
   }
 
   const onEnd = async () => {
+    stopVoice()
     try {
-      const res = await getInterviewSummary(sessionId)
+      const res = await getInterviewSummary({
+        sessionId,
+        history: feedback.map(({ question: q, answer: a, tip }) => ({ question: q, answer: a, tip })),
+      })
       setSummary(res.data)
     } catch (e) {
       setError(e.userMessage || 'Could not load summary')
     } finally {
-      streamRef.current?.getTracks().forEach((t) => t.stop())
+      teardownMedia()
+      window.speechSynthesis?.cancel()
       setEnded(true)
     }
   }
+
+  const resetAll = () => {
+    setEnded(false)
+    setStarted(false)
+    setSummary(null)
+    setFeedback([])
+    setError('')
+  }
+
+  /* ------------------------------- derived -------------------------------- */
+
+  const liveWords = answer.trim() ? answer.trim().split(/\s+/).length : 0
+  const liveWpm = Math.round((liveWords / Math.max(1, elapsed)) * 60) || 0
+  const pace =
+    liveWpm === 0 ? '—' : liveWpm < 90 ? 'Slow' : liveWpm > 170 ? 'Fast' : 'Good'
+
+  const fmtClock = (s) =>
+    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+
+  const sessionAgg = (() => {
+    const totals = feedback.reduce(
+      (acc, f) => {
+        acc.words += f.stats.words
+        acc.seconds += f.stats.seconds
+        acc.fillers += f.stats.fillers
+        return acc
+      },
+      { words: 0, seconds: 0, fillers: 0 }
+    )
+    return {
+      ...totals,
+      wpm: totals.seconds > 0 ? Math.round((totals.words / totals.seconds) * 60) : 0,
+    }
+  })()
+
+  /* -------------------------------- render -------------------------------- */
 
   return (
     <AppShell>
       <PageHeader
         icon={Bot}
         title="AI Interviewer"
-        subtitle="Real-time AI mock interview"
+        subtitle="Real-time voice & video mock interview"
       />
       {error && <p className="text-xs text-danger mb-3">{error}</p>}
 
@@ -129,6 +423,17 @@ export default function InterviewAI() {
               ))}
             </select>
           </div>
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <Mic size={13} /> Voice answers
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Volume2 size={13} /> Spoken questions
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Gauge size={13} /> Pace & filler detection
+            </span>
+          </div>
           <button type="submit" className="btn-primary">
             <Video size={16} /> Start Interview
           </button>
@@ -145,20 +450,83 @@ export default function InterviewAI() {
                 autoPlay
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                className={'w-full h-full object-cover ' + (!camEnabled ? 'opacity-20' : '')}
               />
-              {!streamRef.current && (
-                <div className="absolute inset-0 flex items-center justify-center">
+              {camState !== 'on' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                   <div className="flex items-center justify-center w-16 h-16 rounded-full bg-gradient-purple">
                     <Bot size={28} className="text-white" />
                   </div>
+                  <span className="text-xs text-gray-400">
+                    {camState === 'denied'
+                      ? 'Camera blocked — check browser permissions'
+                      : 'Starting camera…'}
+                  </span>
                 </div>
               )}
+              {!camEnabled && camState === 'on' && (
+                <span className="absolute top-2 right-2 badge bg-danger/20 text-danger">
+                  <VideoOff size={11} /> Off
+                </span>
+              )}
+              {listening && (
+                <span className="absolute top-2 left-2 badge bg-teal/20 text-teal">
+                  <Mic size={11} /> Listening
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2 mt-4">
-              <span className="badge bg-teal/15 text-teal"><Mic size={12} /> Mic</span>
-              <span className="badge bg-blue/15 text-blue"><Video size={12} /> Camera</span>
+
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                onClick={toggleCamera}
+                disabled={camState !== 'on'}
+                title={camEnabled ? 'Turn camera off' : 'Turn camera on'}
+                className={
+                  'btn-ghost px-3 ' + (!camEnabled ? 'text-danger border-danger/40' : '')
+                }
+              >
+                {camEnabled ? <Video size={16} /> : <VideoOff size={16} />}
+              </button>
+              <button
+                onClick={() => setTtsOn((v) => !v)}
+                title={ttsOn ? 'Mute AI voice' : 'Unmute AI voice'}
+                className={'btn-ghost px-3 ' + (!ttsOn ? 'text-danger border-danger/40' : '')}
+              >
+                {ttsOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              </button>
+              <button
+                onClick={listening ? stopVoice : startVoice}
+                disabled={!speech.supported}
+                title={
+                  speech.supported
+                    ? listening
+                      ? 'Stop voice input'
+                      : 'Answer with your voice'
+                    : 'Voice input not supported in this browser'
+                }
+                className={
+                  'px-3 ' +
+                  (listening ? 'btn-teal animate-pulse' : 'btn-primary')
+                }
+              >
+                {listening ? <MicOff size={16} /> : <Mic size={16} />}
+              </button>
             </div>
+
+            {/* Mic level */}
+            <div className="mt-3 rounded-xl border border-white/5 bg-base-900/50 px-3 py-2">
+              <MicMeter analyserRef={analyserRef} />
+              <p className="text-[10px] text-gray-500 mt-1 text-center">
+                {camState === 'on' ? 'Microphone active' : 'Waiting for mic…'}
+              </p>
+            </div>
+
+            {/* Session clock */}
+            <p className="text-center text-xs text-gray-500 mt-3">
+              Session · {fmtClock(elapsed)} on this question
+            </p>
+
             <button onClick={onEnd} className="btn-ghost mt-3 text-danger border-danger/30">
               End interview
             </button>
@@ -170,7 +538,12 @@ export default function InterviewAI() {
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-purple">
                 <Bot size={18} className="text-white" />
               </div>
-              <span className="text-sm font-semibold text-white">AI Interviewer</span>
+              <span className="text-sm font-semibold text-heading">AI Interviewer</span>
+              {ttsOn && (
+                <span className="badge bg-accent/15 text-accent-light ml-auto">
+                  <Volume2 size={11} /> Speaking questions aloud
+                </span>
+              )}
             </div>
             <div className="bg-base-750 border-l-2 border-accent rounded-xl p-4 text-sm text-gray-100">
               {question || 'Waiting for question…'}
@@ -179,27 +552,86 @@ export default function InterviewAI() {
             <textarea
               className="input mt-4 resize-none"
               rows={3}
-              placeholder="Type or record your answer…"
+              placeholder="Type your answer, or tap the mic and speak…"
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
             />
-            <div className="flex justify-end gap-3 mt-3">
-              <button onClick={onNext} disabled={answering || !answer.trim()} className="btn-primary">
-                {answering ? <Spinner /> : <>Next question <ArrowRight size={16} /></>}
+
+            {/* Live transcript + detection strip */}
+            {(interim || voiceError) && (
+              <p
+                className={
+                  'text-xs mt-2 ' +
+                  (voiceError ? 'text-danger flex items-center gap-1' : 'text-gray-500 italic')
+                }
+              >
+                {voiceError ? (
+                  <>
+                    <AlertTriangle size={12} /> {voiceError}
+                  </>
+                ) : (
+                  `“${interim}”`
+                )}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                {liveWords} words
+              </span>
+              <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                {fmtClock(elapsed)}
+              </span>
+              <span
+                className={
+                  'badge border border-white/10 ' +
+                  (pace === 'Good'
+                    ? 'bg-teal/15 text-teal'
+                    : pace === 'Fast'
+                      ? 'bg-orange/15 text-orange'
+                      : 'bg-blue/15 text-blue')
+                }
+              >
+                <Gauge size={11} /> {pace} {liveWpm ? `· ${liveWpm} wpm` : ''}
+              </span>
+              <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                Fillers: {countFillers(answer)}
+              </span>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={onNext}
+                disabled={answering || !answer.trim()}
+                className="btn-primary"
+              >
+                {answering ? (
+                  <Spinner />
+                ) : (
+                  <>
+                    Next question <ArrowRight size={16} />
+                  </>
+                )}
               </button>
             </div>
 
             {feedback.length > 0 && (
               <div className="mt-5">
-                <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-heading mb-2 flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-teal" /> AI Feedback
                 </h4>
-                <ul className="space-y-2">
+                <ul className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {feedback.map((f, i) => (
                     <li key={i} className="text-sm text-gray-300 bg-white/5 rounded-lg p-3">
                       <p className="text-gray-400 text-xs mb-1">Q: {f.question}</p>
-                      <p>A: {f.answer}</p>
+                      <p>A: {f.answer.length > 220 ? f.answer.slice(0, 220) + '…' : f.answer}</p>
                       <p className="text-accent-light mt-1">Coach: {f.tip}</p>
+                      {f.stats && (
+                        <p className="text-[11px] text-gray-500 mt-1.5">
+                          Detected · {f.stats.words} words · {fmtClock(f.stats.seconds)} ·{' '}
+                          {f.stats.wpm} wpm · {f.stats.fillers} filler
+                          {f.stats.fillers === 1 ? '' : 's'}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -211,10 +643,26 @@ export default function InterviewAI() {
 
       {ended && summary && (
         <div className="card p-6 max-w-2xl">
-          <h3 className="text-lg font-semibold text-white">Interview Report</h3>
-          <p className="text-3xl font-bold text-accent-light mt-2">
-            {summary.score}/100
-          </p>
+          <h3 className="text-lg font-semibold text-heading">Interview Report</h3>
+          {summary.source === 'local' && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              Offline coach — connect the AI backend for deeper evaluation.
+            </p>
+          )}
+          <div className="flex items-end gap-6 mt-2">
+            <p className="text-3xl font-bold text-accent-light">{summary.score}/100</p>
+            <div className="flex flex-wrap gap-2 pb-1">
+              <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                {sessionAgg.words} words spoken
+              </span>
+              <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                avg {sessionAgg.wpm} wpm
+              </span>
+              <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                {sessionAgg.fillers} fillers
+              </span>
+            </div>
+          </div>
           <p className="text-sm text-gray-400 mt-1">{summary.overall}</p>
           {summary.strengths?.length > 0 && (
             <div className="mt-5">
@@ -232,7 +680,16 @@ export default function InterviewAI() {
               </ul>
             </div>
           )}
-          <button onClick={() => { setEnded(false); setStarted(false); setSummary(null); setFeedback([]); }} className="btn-ghost mt-6">
+          <button onClick={resetAll} className="btn-ghost mt-6">
+            <RotateCcw size={16} /> New interview
+          </button>
+        </div>
+      )}
+
+      {ended && !summary && (
+        <div className="card p-6 max-w-2xl text-center">
+          <p className="text-sm text-gray-400">Interview ended.</p>
+          <button onClick={resetAll} className="btn-ghost mt-4">
             <RotateCcw size={16} /> New interview
           </button>
         </div>

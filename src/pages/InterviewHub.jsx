@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Video, Bot, Users, ArrowRight, Mic, Radio } from 'lucide-react'
+import { Video, Bot, Users, ArrowRight, Mic, Radio, Zap } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import PageHeader from '../components/PageHeader'
 
@@ -29,7 +29,7 @@ export default function InterviewHub() {
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-purple shadow-glow-purple">
             <Bot size={24} className="text-white" />
           </div>
-          <h3 className="text-lg font-semibold text-white mt-4">AI Interviewer</h3>
+          <h3 className="text-lg font-semibold text-heading mt-4">AI Interviewer</h3>
           <p className="text-sm text-gray-400 mt-2 flex-1">
             Hop on a video-call-style interview with an AI interviewer. It asks
             real questions, evaluates your answers, and coaches you to crack
@@ -53,7 +53,7 @@ export default function InterviewHub() {
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-teal">
             <Users size={24} className="text-white" />
           </div>
-          <h3 className="text-lg font-semibold text-white mt-4">Live Human Room</h3>
+          <h3 className="text-lg font-semibold text-heading mt-4">Live Human Room</h3>
           <p className="text-sm text-gray-400 mt-2 flex-1">
             Create a room and invite a real interviewer over a live
             peer-to-peer video call with in-call chat. An AI coach sits on the

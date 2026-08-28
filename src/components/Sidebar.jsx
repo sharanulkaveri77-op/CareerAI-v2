@@ -1,76 +1,104 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutGrid,
+  LayoutDashboard,
   Sparkles,
+  Map,
+  Target,
+  BookOpen,
+  Code2,
   Brain,
-  Search,
-  FileText,
+  MessageSquare,
   Video,
-  GraduationCap,
-  Route,
+  FileText,
+  FileCode,
+  Briefcase,
   LogOut,
-  Zap,
-  Shield,
 } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { supabase } from '../api/supabase'
+import Logo from './Logo'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
-  { to: '/advisor', label: 'AI Advisor', icon: Sparkles },
-  { to: '/skills', label: 'Skills', icon: Brain },
-  { to: '/roles', label: 'Explore Roles', icon: Search },
-  { to: '/resume', label: 'Resume', icon: FileText },
-  { to: '/interview', label: 'Interview Practice', icon: Video },
-  { to: '/learning', label: 'Learning', icon: GraduationCap },
-  { to: '/roadmap', label: 'Roadmap', icon: Route },
+const navGroups = [
+  {
+    title: 'Core Platform',
+    items: [
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/advisor', label: 'AI Advisor', icon: Sparkles },
+      { to: '/roadmap', label: 'Career Roadmap', icon: Map },
+      { to: '/skills', label: 'Skill Gap Analysis', icon: Target },
+      { to: '/learning', label: 'Learning Hub', icon: BookOpen },
+    ],
+  },
+  {
+    title: 'Practice & Prep',
+    items: [
+      { to: '/dsa', label: 'DSA Practice', icon: Code2 },
+      { to: '/aptitude', label: 'Aptitude Tests', icon: Brain },
+      { to: '/communication', label: 'Communication', icon: MessageSquare },
+      { to: '/interview', label: 'Mock Interviews', icon: Video },
+    ],
+  },
+  {
+    title: 'Tools & Jobs',
+    items: [
+      { to: '/resume', label: 'ATS Resume Scanner', icon: FileText },
+      { to: '/resume/builder', label: 'AI Resume Builder', icon: FileCode },
+      { to: '/jobs', label: 'Job Discovery', icon: Briefcase },
+    ],
+  },
 ]
 
 export default function Sidebar() {
-  const { logout } = useAuth()
   const navigate = useNavigate()
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      /* ignore */
+    }
     navigate('/login')
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-60 bg-base-850 border-r border-white/5 flex flex-col">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5">
-        <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-purple shadow-glow-purple">
-          <Zap size={22} className="text-white" />
-        </div>
-        <div>
-          <p className="text-white font-bold leading-tight">CareerIQ</p>
-          <p className="text-[10px] tracking-widest text-accent-light/80">
-            INTELLIGENCE PLATFORM
-          </p>
-        </div>
+    <aside className="w-64 h-screen sticky top-0 border-r border-white/5 bg-base-900/80 backdrop-blur-md flex flex-col shrink-0 z-30">
+      {/* Brand header */}
+      <div className="h-16 flex items-center px-5 border-b border-white/5">
+        <Link to="/dashboard">
+          <Logo />
+        </Link>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto py-2">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              'nav-item ' + (isActive ? 'nav-item-active' : '')
-            }
-          >
-            <Icon size={18} />
-            <span>{label}</span>
-          </NavLink>
+      {/* Nav list */}
+      <nav className="flex-1 px-3 space-y-5 overflow-y-auto py-4">
+        {navGroups.map((group) => (
+          <div key={group.title} className="space-y-1">
+            <p className="px-3 text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-1.5">
+              {group.title}
+            </p>
+            {group.items.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  'nav-item text-xs ' + (isActive ? 'nav-item-active font-semibold' : '')
+                }
+              >
+                <Icon size={16} />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </div>
         ))}
 
-        <button
-          onClick={handleLogout}
-          className="nav-item w-full text-left mt-2 hover:text-danger"
-        >
-          <LogOut size={18} />
-          <span>Logout</span>
-        </button>
+        <div className="pt-2 border-t border-white/5">
+          <button
+            onClick={handleLogout}
+            className="nav-item w-full text-left text-xs hover:text-danger"
+          >
+            <LogOut size={16} />
+            <span>Logout</span>
+          </button>
+        </div>
       </nav>
 
       {/* Footer card */}
@@ -78,8 +106,8 @@ export default function Sidebar() {
         <p className="text-[10px] uppercase tracking-wider text-gray-500">
           Powered by
         </p>
-        <p className="text-sm font-semibold bg-gradient-purple bg-clip-text text-transparent">
-          Advanced AI Models
+        <p className="text-xs font-semibold bg-gradient-purple bg-clip-text text-transparent">
+          Google Gemini 2.5 Flash
         </p>
         <p className="text-[10px] text-gray-500 mt-0.5">
           Real-time market intelligence
