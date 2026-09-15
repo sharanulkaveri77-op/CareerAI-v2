@@ -193,21 +193,31 @@ Return JSON object: { "sessionId": "${crypto.randomUUID()}", "question": "the qu
   }
 
   if (action === 'answer') {
-    const { question, answer, type = 'Technical', history = [] } = payload
+    const { question, answer, type = 'Technical', history = [], role = 'Software Engineer' } = payload
     const previousQuestions = history.map((h) => h.question)
-    const prompt = `Current Question: "${question}"
-Candidate Answer: "${answer}"
+    const prompt = `You are a real Senior Engineering Hiring Manager interviewing a candidate for the role "${role}".
+Current Question Asked: "${question}"
+Candidate's Spoken/Typed Answer: "${answer}"
 
-Provide constructive STAR feedback on the candidate's answer and generate the NEXT unique ${type} interview question.
-Do NOT repeat any of these previously asked questions: [${previousQuestions.join(' | ')}].
+Your job is to respond naturally and interactively like a real human interviewer.
+1. Formulate "aiResponse": A 1-2 sentence conversational spoken response directly addressing what the candidate said (e.g., "That's an insightful point about handling microservice failures with circuit breakers...").
+2. Formulate "feedback": A 1-2 sentence constructive STAR coaching feedback tip evaluating their technical depth and clarity.
+3. Formulate "rating": Assess answer quality as one of: "Strong", "Good", or "Needs Depth".
+4. Formulate "nextQuestion": A contextual follow-up or next ${type} interview question building on their response. Do NOT repeat previous questions: [${previousQuestions.join(' | ')}].
 
-Return JSON object: { "feedback": "constructive 2-sentence STAR coaching feedback tip", "nextQuestion": "unique next question text" }`
+Return JSON object:
+{
+  "aiResponse": "Conversational interviewer response directly engaging with candidate's specific answer details",
+  "feedback": "Constructive STAR coaching feedback tip",
+  "rating": "Strong",
+  "nextQuestion": "Contextual follow-up question text"
+}`
     return await call(prompt, 'You are an Expert Tech Interviewer & Coach. Return valid JSON.')
   }
 
   if (action === 'summary') {
     const { history = [] } = payload
-    const transcript = history.map((h, i) => `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}`).join('\n\n')
+    const transcript = history.map((h, i) => `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}\nAI Feedback: ${h.tip || h.feedback}`).join('\n\n')
     const prompt = `Evaluate candidate's full interview performance transcript:
 ${transcript || 'No answers provided'}
 
@@ -246,11 +256,11 @@ export const startInterview = async (data) => {
   let body
   try {
     body = await invoke('start', data)
-    sessions.set(body.sessionId, { type: data?.type || 'Technical', index: 1, asked: [body.question] })
+    sessions.set(body.sessionId, { type: data?.type || 'Technical', role: data?.role || 'Software Engineer', index: 1, asked: [body.question] })
   } catch {
     const sessionId = crypto.randomUUID()
     const firstQ = pickQuestion(data?.type || 'Technical', 0)
-    sessions.set(sessionId, { type: data?.type || 'Technical', index: 1, asked: [firstQ] })
+    sessions.set(sessionId, { type: data?.type || 'Technical', role: data?.role || 'Software Engineer', index: 1, asked: [firstQ] })
     body = {
       sessionId,
       question: firstQ,
@@ -261,17 +271,24 @@ export const startInterview = async (data) => {
 }
 
 export const submitAnswer = async (data) => {
-  const state = sessions.get(data?.sessionId) || { type: 'Technical', index: 0, asked: [] }
+  const state = sessions.get(data?.sessionId) || { type: 'Technical', role: 'Software Engineer', index: 0, asked: [] }
   try {
-    const body = await invoke('answer', { ...data, history: state.asked.map((q) => ({ question: q })) })
+    const body = await invoke('answer', { ...data, role: state.role, history: state.asked.map((q) => ({ question: q })) })
     if (body?.nextQuestion) {
       sessions.set(data?.sessionId, { ...state, asked: [...state.asked, body.nextQuestion] })
     }
     return { data: body }
   } catch {
+    const words = (data?.answer || '').trim().split(/\s+/).filter(Boolean).length
+    const rating = words >= 50 ? 'Strong' : words >= 25 ? 'Good' : 'Needs Depth'
+    const aiResponse = words >= 40
+      ? `Great explanation! You brought up key engineering details in your answer.`
+      : `Thanks for that summary. Let's delve a bit deeper into your implementation details.`
     const nextQ = pickQuestion(state.type, state.index, state.asked)
     const result = {
+      aiResponse,
       feedback: heuristicFeedback(data?.answer || ''),
+      rating,
       nextQuestion: nextQ,
       source: 'local',
     }

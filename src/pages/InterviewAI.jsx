@@ -201,6 +201,7 @@ export default function InterviewAI() {
   const audioCtxRef = useRef(null)
   const analyserRef = useRef(null)
   const questionStartRef = useRef(Date.now())
+  const feedEndRef = useRef(null)
 
   const speech = useSpeechEngine({
     onFinalText: (text) =>
@@ -270,20 +271,29 @@ export default function InterviewAI() {
     return () => clearInterval(id)
   }, [started, ended])
 
-  // read each new question aloud
-  useEffect(() => {
-    if (!started || !ttsOn || !question) return
+  const speakText = (text) => {
+    if (!ttsOn || !text) return
     try {
       window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(question)
+      const utterance = new SpeechSynthesisUtterance(text)
       utterance.rate = 1
       utterance.pitch = 1
       window.speechSynthesis.speak(utterance)
     } catch {
       /* TTS unsupported */
     }
+  }
+
+  // read initial question aloud
+  useEffect(() => {
+    if (!started || !ttsOn || !question) return
+    speakText(question)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question, ttsOn])
+  }, [question, started])
+
+  useEffect(() => {
+    feedEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [feedback])
 
   const toggleCamera = () => {
     const track = streamRef.current?.getVideoTracks()[0]
@@ -328,11 +338,30 @@ export default function InterviewAI() {
     setAnswering(true)
     stopVoice()
     const stats = buildStats(answer)
+    const currentQ = question
+    const currentAns = answer
     try {
-      const res = await submitAnswer({ sessionId, question, answer })
+      const res = await submitAnswer({ sessionId, question: currentQ, answer: currentAns })
+      const aiResp = res.data?.aiResponse || 'Thank you for your explanation.'
       const fb = res.data?.feedback || res.data?.coachTip || ''
-      setFeedback((prev) => [...prev, { question, answer, tip: fb, stats }])
-      applyQuestion(res.data?.nextQuestion || '')
+      const rating = res.data?.rating || 'Good'
+      const nextQ = res.data?.nextQuestion || ''
+
+      const item = {
+        id: crypto.randomUUID(),
+        question: currentQ,
+        answer: currentAns,
+        aiResponse: aiResp,
+        tip: fb,
+        rating,
+        stats,
+      }
+
+      setFeedback((prev) => [...prev, item])
+      applyQuestion(nextQ)
+
+      // Spoken 2-way interaction: Speak AI's response & next question
+      speakText(`${aiResp}. Next question: ${nextQ}`)
     } catch (e) {
       setError(e.userMessage || 'Failed to submit answer')
     } finally {
@@ -398,7 +427,7 @@ export default function InterviewAI() {
       <PageHeader
         icon={Bot}
         title="AI Interviewer"
-        subtitle="Real-time voice & video mock interview"
+        subtitle="Real-time 2-way voice & interactive mock interview"
       />
       {error && <p className="text-xs text-danger mb-3">{error}</p>}
 
@@ -425,17 +454,17 @@ export default function InterviewAI() {
           </div>
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span className="flex items-center gap-1.5">
-              <Mic size={13} /> Voice answers
+              <Mic size={13} /> Interactive voice
             </span>
             <span className="flex items-center gap-1.5">
-              <Volume2 size={13} /> Spoken questions
+              <Volume2 size={13} /> Spoken responses & questions
             </span>
             <span className="flex items-center gap-1.5">
-              <Gauge size={13} /> Pace & filler detection
+              <Gauge size={13} /> Real-time feedback
             </span>
           </div>
           <button type="submit" className="btn-primary">
-            <Video size={16} /> Start Interview
+            <Video size={16} /> Start Interactive Interview
           </button>
         </form>
       )}
@@ -470,7 +499,7 @@ export default function InterviewAI() {
                 </span>
               )}
               {listening && (
-                <span className="absolute top-2 left-2 badge bg-teal/20 text-teal">
+                <span className="absolute top-2 left-2 badge bg-teal/20 text-teal animate-pulse">
                   <Mic size={11} /> Listening
                 </span>
               )}
@@ -502,7 +531,7 @@ export default function InterviewAI() {
                   speech.supported
                     ? listening
                       ? 'Stop voice input'
-                      : 'Answer with your voice'
+                      : 'Speak answer aloud'
                     : 'Voice input not supported in this browser'
                 }
                 className={
@@ -532,109 +561,149 @@ export default function InterviewAI() {
             </button>
           </div>
 
-          {/* Question + answer */}
-          <div className="card p-5 lg:col-span-2 flex flex-col">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-purple">
-                <Bot size={18} className="text-white" />
+          {/* Question + Answer & Conversation Stream */}
+          <div className="card p-5 lg:col-span-2 flex flex-col justify-between">
+            <div>
+              {/* Question Header */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-purple">
+                  <Bot size={18} className="text-white" />
+                </div>
+                <span className="text-sm font-semibold text-heading">AI Interviewer</span>
+                <button
+                  onClick={() => speakText(question)}
+                  className="ml-auto text-xs text-accent-light hover:underline flex items-center gap-1"
+                  title="Re-play question voice"
+                >
+                  <Volume2 size={13} /> Read Aloud
+                </button>
               </div>
-              <span className="text-sm font-semibold text-heading">AI Interviewer</span>
-              {ttsOn && (
-                <span className="badge bg-accent/15 text-accent-light ml-auto">
-                  <Volume2 size={11} /> Speaking questions aloud
-                </span>
-              )}
-            </div>
-            <div className="bg-base-750 border-l-2 border-accent rounded-xl p-4 text-sm text-gray-100">
-              {question || 'Waiting for question…'}
-            </div>
 
-            <textarea
-              className="input mt-4 resize-none"
-              rows={3}
-              placeholder="Type your answer, or tap the mic and speak…"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-            />
+              {/* Current Question Box */}
+              <div className="bg-base-750 border-l-4 border-accent rounded-xl p-4 text-sm text-gray-100 shadow-md">
+                <p className="text-xs uppercase font-bold tracking-wider text-accent-light mb-1">Current Question</p>
+                <p className="font-medium leading-relaxed">{question || 'Waiting for question…'}</p>
+              </div>
 
-            {/* Live transcript + detection strip */}
-            {(interim || voiceError) && (
-              <p
-                className={
-                  'text-xs mt-2 ' +
-                  (voiceError ? 'text-danger flex items-center gap-1' : 'text-gray-500 italic')
-                }
-              >
-                {voiceError ? (
-                  <>
-                    <AlertTriangle size={12} /> {voiceError}
-                  </>
-                ) : (
-                  `“${interim}”`
+              {/* Answer Input Area */}
+              <div className="mt-4">
+                <textarea
+                  className="input resize-none font-sans"
+                  rows={3}
+                  placeholder="Tap the mic button to speak your answer, or type here…"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                />
+
+                {/* Live transcript + detection strip */}
+                {(interim || voiceError) && (
+                  <p
+                    className={
+                      'text-xs mt-2 ' +
+                      (voiceError ? 'text-danger flex items-center gap-1' : 'text-accent-light italic')
+                    }
+                  >
+                    {voiceError ? (
+                      <>
+                        <AlertTriangle size={12} /> {voiceError}
+                      </>
+                    ) : (
+                      `“${interim}”`
+                    )}
+                  </p>
                 )}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              <span className="badge bg-white/5 text-gray-300 border border-white/10">
-                {liveWords} words
-              </span>
-              <span className="badge bg-white/5 text-gray-300 border border-white/10">
-                {fmtClock(elapsed)}
-              </span>
-              <span
-                className={
-                  'badge border border-white/10 ' +
-                  (pace === 'Good'
-                    ? 'bg-teal/15 text-teal'
-                    : pace === 'Fast'
-                      ? 'bg-orange/15 text-orange'
-                      : 'bg-blue/15 text-blue')
-                }
-              >
-                <Gauge size={11} /> {pace} {liveWpm ? `· ${liveWpm} wpm` : ''}
-              </span>
-              <span className="badge bg-white/5 text-gray-300 border border-white/10">
-                Fillers: {countFillers(answer)}
-              </span>
+
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                    {liveWords} words
+                  </span>
+                  <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                    {fmtClock(elapsed)}
+                  </span>
+                  <span
+                    className={
+                      'badge border border-white/10 ' +
+                      (pace === 'Good'
+                        ? 'bg-teal/15 text-teal'
+                        : pace === 'Fast'
+                          ? 'bg-orange/15 text-orange'
+                          : 'bg-blue/15 text-blue')
+                    }
+                  >
+                    <Gauge size={11} /> {pace} {liveWpm ? `· ${liveWpm} wpm` : ''}
+                  </span>
+                  <span className="badge bg-white/5 text-gray-300 border border-white/10">
+                    Fillers: {countFillers(answer)}
+                  </span>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-4">
+                  <button
+                    onClick={onNext}
+                    disabled={answering || !answer.trim()}
+                    className="btn-primary"
+                  >
+                    {answering ? (
+                      <Spinner />
+                    ) : (
+                      <>
+                        Submit & Interact <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={onNext}
-                disabled={answering || !answer.trim()}
-                className="btn-primary"
-              >
-                {answering ? (
-                  <Spinner />
-                ) : (
-                  <>
-                    Next question <ArrowRight size={16} />
-                  </>
-                )}
-              </button>
-            </div>
-
+            {/* Interactive Conversation Timeline */}
             {feedback.length > 0 && (
-              <div className="mt-5">
-                <h4 className="text-sm font-semibold text-heading mb-2 flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-teal" /> AI Feedback
+              <div className="mt-6 border-t border-white/10 pt-4">
+                <h4 className="text-xs uppercase font-bold tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                  <CheckCircle2 size={15} className="text-teal" /> Live Conversation Stream ({feedback.length})
                 </h4>
-                <ul className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
                   {feedback.map((f, i) => (
-                    <li key={i} className="text-sm text-gray-300 bg-white/5 rounded-lg p-3">
-                      <p className="text-gray-400 text-xs mb-1">Q: {f.question}</p>
-                      <p>A: {f.answer.length > 220 ? f.answer.slice(0, 220) + '…' : f.answer}</p>
-                      <p className="text-accent-light mt-1">Coach: {f.tip}</p>
-                      {f.stats && (
-                        <p className="text-[11px] text-gray-500 mt-1.5">
-                          Detected · {f.stats.words} words · {fmtClock(f.stats.seconds)} ·{' '}
-                          {f.stats.wpm} wpm · {f.stats.fillers} filler
-                          {f.stats.fillers === 1 ? '' : 's'}
-                        </p>
-                      )}
-                    </li>
+                    <div key={f.id || i} className="space-y-2 bg-base-900/60 rounded-xl p-3.5 border border-white/5">
+                      {/* Candidate Spoken Answer */}
+                      <div className="flex items-start gap-2.5">
+                        <span className="text-xs bg-white/10 text-gray-200 px-2 py-0.5 rounded font-semibold shrink-0">Candidate</span>
+                        <p className="text-xs text-gray-300 leading-relaxed italic">“{f.answer}”</p>
+                      </div>
+
+                      {/* AI Interviewer Spoken Response & Rating */}
+                      <div className="flex items-start gap-2.5 bg-accent/10 rounded-lg p-2.5 border border-accent/20">
+                        <Bot size={16} className="text-accent-light shrink-0 mt-0.5" />
+                        <div className="flex-1 space-y-1 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-accent-light">AI Response</span>
+                            <span
+                              className={
+                                'badge text-[10px] ' +
+                                (f.rating === 'Strong'
+                                  ? 'bg-teal/20 text-teal border border-teal/30'
+                                  : f.rating === 'Good'
+                                    ? 'bg-blue/20 text-blue border border-blue/30'
+                                    : 'bg-orange/20 text-orange border border-orange/30')
+                              }
+                            >
+                              {f.rating || 'Evaluated'}
+                            </span>
+                          </div>
+                          {f.aiResponse && <p className="text-gray-200 font-medium">{f.aiResponse}</p>}
+                          <p className="text-gray-400">{f.tip}</p>
+                        </div>
+                        <button
+                          onClick={() => speakText(`${f.aiResponse || ''} ${f.tip}`)}
+                          className="text-gray-400 hover:text-white p-1"
+                          title="Replay AI Voice"
+                        >
+                          <Volume2 size={13} />
+                        </button>
+                      </div>
+                    </div>
                   ))}
-                </ul>
+                  <div ref={feedEndRef} />
+                </div>
               </div>
             )}
           </div>

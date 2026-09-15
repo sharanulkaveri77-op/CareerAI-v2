@@ -101,20 +101,27 @@ async function handleAnswer(body: ReqBody): Promise<Record<string, unknown>> {
   const question = body.question || ''
   const answer = body.answer || ''
   const system =
-    'You are an interview coach. Give concise, supportive coaching feedback ' +
-    'on the candidate answer, then ask the next question. ' +
-    'Respond with JSON only: {"feedback": "...", "nextQuestion": "..."}.'
+    'You are an interactive senior interview coach. ' +
+    'Respond with JSON only: {"aiResponse": "...", "feedback": "...", "rating": "Strong|Good|Needs Depth", "nextQuestion": "..."}.'
   const prompt =
     `Interview question: ${question}\n` +
     `Candidate answer: ${answer}\n` +
-    `Return JSON only: {"feedback": "...", "nextQuestion": "..."}`
+    `Respond dynamically to what they said and generate the next question.`
   const raw = await ollamaGenerate(prompt, system)
   const parsed = parseJson(raw)
   return {
+    aiResponse:
+      typeof parsed.aiResponse === 'string' && parsed.aiResponse.trim()
+        ? parsed.aiResponse
+        : 'Thank you for sharing that experience.',
     feedback:
       typeof parsed.feedback === 'string' && parsed.feedback.trim()
         ? parsed.feedback
         : 'Solid attempt — keep your answers structured with a short example.',
+    rating:
+      typeof parsed.rating === 'string' && parsed.rating.trim()
+        ? parsed.rating
+        : 'Good',
     nextQuestion:
       typeof parsed.nextQuestion === 'string' && parsed.nextQuestion.trim()
         ? parsed.nextQuestion

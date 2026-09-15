@@ -24,7 +24,7 @@ function FloatingCard({ className, children }) {
   return (
     <div
       className={
-        'absolute rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md px-4 py-3 shadow-xl ' +
+        'absolute rounded-2xl border border-white/10 bg-base-800/80 backdrop-blur-xl px-4 py-3.5 shadow-2xl shadow-purple-950/20 ' +
         (className || '')
       }
     >
@@ -35,24 +35,29 @@ function FloatingCard({ className, children }) {
 
 function HeroPanel() {
   return (
-    <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#2a1155] via-accent to-[#4f1d95] p-12 text-white">
-      {/* decorative layers */}
-      <div className="absolute inset-0 login-grid-bg" />
-      <div className="absolute -top-32 -right-32 w-[420px] h-[420px] rounded-full bg-fuchsia-400/25 blur-3xl" />
-      <div className="absolute bottom-0 -left-24 w-[380px] h-[380px] rounded-full bg-teal/20 blur-3xl" />
+    <div className="relative hidden lg:flex flex-col justify-between overflow-hidden border-r border-white/5 bg-base-900/60 p-12 text-white backdrop-blur-xl">
+      {/* Decorative ambient lighting & grid mesh */}
+      <div className="absolute inset-0 login-grid-bg opacity-30 pointer-events-none" />
+      <div className="absolute -top-24 -left-20 w-[450px] h-[450px] rounded-full bg-purple-600/15 blur-3xl pointer-events-none" />
+      <div className="absolute top-1/3 right-0 w-[350px] h-[350px] rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 -left-10 w-[400px] h-[400px] rounded-full bg-teal/10 blur-3xl pointer-events-none" />
 
-      <Logo size={46} withWordmark className="relative" />
+      <Logo size={46} withWordmark className="relative z-10" />
 
-      {/* Headline */}
-      <div className="relative max-w-lg">
-        <span className="badge bg-white/10 text-white border border-white/20 mb-6">
-          <Sparkles size={12} /> AI-powered career intelligence
+      {/* Headline & features */}
+      <div className="relative z-10 max-w-lg my-auto py-8">
+        <span className="badge bg-accent/15 text-accent-light border border-accent/30 mb-6 px-3 py-1 text-xs font-semibold rounded-full inline-flex items-center gap-1.5 shadow-sm">
+          <Sparkles size={13} className="text-accent-light" /> AI-powered career intelligence
         </span>
-        <h1 className="text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight">
+        
+        <h1 className="text-4xl xl:text-5xl font-extrabold leading-[1.15] tracking-tight text-heading">
           Your career,<br />
-          decoded by AI.
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent-light via-purple-300 to-indigo-200">
+            decoded by AI.
+          </span>
         </h1>
-        <p className="mt-5 text-white/80 leading-relaxed">
+        
+        <p className="mt-5 text-gray-300/90 text-base leading-relaxed">
           Practice real interviews with a voice-enabled AI interviewer, scan
           your resume like a recruiter, and get a personalized roadmap to the
           role you want.
@@ -65,51 +70,51 @@ function HeroPanel() {
             { icon: Sparkles, text: 'Skill-gap analysis & curated learning' },
           ].map(({ icon: Icon, text }) => (
             <li key={text} className="flex items-center gap-3">
-              <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/15 backdrop-blur-sm shrink-0">
-                <Icon size={17} className="text-white" />
+              <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 shrink-0 text-accent-light">
+                <Icon size={17} />
               </span>
-              <span className="text-sm text-white/90">{text}</span>
+              <span className="text-sm font-medium text-gray-200">{text}</span>
             </li>
           ))}
         </ul>
       </div>
 
       {/* Floating mock UI cards */}
-      <div className="relative h-40 pointer-events-none select-none">
+      <div className="relative z-10 h-44 pointer-events-none select-none">
         <FloatingCard className="left-0 bottom-10 w-56 animate-pulse-slow">
-          <p className="text-[11px] uppercase tracking-wider text-white/60">Resume score</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Resume score</p>
           <div className="flex items-end gap-2 mt-1">
-            <span className="text-2xl font-bold">87</span>
+            <span className="text-2xl font-bold text-white">87</span>
             <span className="text-xs text-teal font-semibold mb-1 flex items-center gap-1">
               <CheckCircle2 size={13} /> ATS Pass
             </span>
           </div>
-          <div className="mt-2 h-1.5 rounded-full bg-white/15 overflow-hidden">
+          <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
             <div className="h-full w-[87%] rounded-full bg-gradient-to-r from-teal to-emerald-300" />
           </div>
         </FloatingCard>
 
         <FloatingCard className="right-4 top-0 w-64">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1.5">
             <span className="w-2 h-2 rounded-full bg-danger animate-pulse" />
-            <p className="text-xs font-semibold">Live interview · Q3</p>
+            <p className="text-xs font-semibold text-white">Live interview · Q3</p>
           </div>
-          <p className="text-[11px] text-white/70 leading-relaxed">
+          <p className="text-[11px] text-gray-300 leading-relaxed">
             “Tell me about a time you owned a project end-to-end…”
           </p>
         </FloatingCard>
 
         <FloatingCard className="right-24 bottom-0 w-48">
-          <p className="text-[11px] uppercase tracking-wider text-white/60">Skill match</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Skill match</p>
           <div className="flex items-center gap-1.5 mt-2">
             {[82, 64, 91, 58, 76].map((h, i) => (
               <span
                 key={i}
-                className="w-5 rounded-md bg-white/30"
+                className="w-5 rounded-md bg-accent/40"
                 style={{ height: `${h / 3}px` }}
               />
             ))}
-            <span className="ml-auto text-xs font-bold">A+</span>
+            <span className="ml-auto text-xs font-bold text-accent-light">A+</span>
           </div>
         </FloatingCard>
       </div>
