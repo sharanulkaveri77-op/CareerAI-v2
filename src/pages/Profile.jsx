@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   User,
   GraduationCap,
@@ -13,17 +13,82 @@ import AppShell from '../components/AppShell'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useAuth } from '../context/AuthContext'
+import { upsertProfile } from '../api/profiles'
 
 export default function Profile() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
-  const [formData, setFormData] = useState({
-    name: profile?.full_name || user?.user_metadata?.full_name || 'Alex Kumar',
-    usn: profile?.usn || user?.user_metadata?.usn || '1MS22CS001',
-    degree: 'B.E. Computer Science',
-    college: 'VTU Technological University',
-    targetRole: 'Full Stack Engineer',
+
+  const [formData, setFormData] = useState(() => {
+    let onboardingData = null
+    try {
+      const raw = localStorage.getItem('careeriq_onboarding')
+      if (raw) onboardingData = JSON.parse(raw)
+    } catch {
+      /* ignore */
+    }
+    return {
+      name: profile?.full_name || onboardingData?.fullName || user?.user_metadata?.full_name || 'Alex Kumar',
+      usn: profile?.usn || onboardingData?.usn || user?.user_metadata?.usn || '1MS22CS001',
+      degree: onboardingData?.degree || 'B.E. Computer Science',
+      college: onboardingData?.college || 'VTU Technological University',
+      targetRole: onboardingData?.targetRole || profile?.target_role || 'Full Stack Engineer',
+    }
   })
+
+  useEffect(() => {
+    let onboardingData = null
+    try {
+      const raw = localStorage.getItem('careeriq_onboarding')
+      if (raw) onboardingData = JSON.parse(raw)
+    } catch {
+      /* ignore */
+    }
+
+    setFormData({
+      name: profile?.full_name || onboardingData?.fullName || user?.user_metadata?.full_name || 'Alex Kumar',
+      usn: profile?.usn || onboardingData?.usn || user?.user_metadata?.usn || '1MS22CS001',
+      degree: onboardingData?.degree || 'B.E. Computer Science',
+      college: onboardingData?.college || 'VTU Technological University',
+      targetRole: onboardingData?.targetRole || profile?.target_role || 'Full Stack Engineer',
+    })
+  }, [profile, user])
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault()
+
+    // 1. Update localStorage careeriq_onboarding
+    try {
+      const existing = localStorage.getItem('careeriq_onboarding')
+      const parsed = existing ? JSON.parse(existing) : {}
+      const updatedOnb = {
+        ...parsed,
+        fullName: formData.name,
+        usn: formData.usn,
+        degree: formData.degree,
+        college: formData.college,
+        targetRole: formData.targetRole,
+        updatedAt: new Date().toISOString(),
+      }
+      localStorage.setItem('careeriq_onboarding', JSON.stringify(updatedOnb))
+    } catch {
+      /* noop */
+    }
+
+    // 2. Update Supabase profile
+    try {
+      await upsertProfile({
+        full_name: formData.name,
+        usn: formData.usn,
+        target_role: formData.targetRole,
+      })
+      if (refreshProfile) await refreshProfile()
+    } catch {
+      /* noop */
+    }
+
+    setModalOpen(false)
+  }
 
   return (
     <AppShell>
@@ -108,23 +173,18 @@ export default function Profile() {
       {/* Edit Profile Modal */}
       {modalOpen && (
         <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Edit Profile Details">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              setModalOpen(false)
-            }}
-            className="space-y-4"
-          >
+          <form onSubmit={handleSaveProfile} className="space-y-4">
             <div>
               <label className="label">Full Name</label>
               <input
                 className="input text-xs"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
               />
             </div>
             <div>
-              <label className="label">USN</label>
+              <label className="label">USN / Student ID</label>
               <input
                 className="input text-xs"
                 value={formData.usn}
@@ -132,7 +192,7 @@ export default function Profile() {
               />
             </div>
             <div>
-              <label className="label">Degree</label>
+              <label className="label">Degree / Specialization</label>
               <input
                 className="input text-xs"
                 value={formData.degree}
@@ -140,12 +200,34 @@ export default function Profile() {
               />
             </div>
             <div>
-              <label className="label">Target Career Goal</label>
+              <label className="label">University / College</label>
               <input
                 className="input text-xs"
+                value={formData.college}
+                onChange={(e) => setFormData({ ...formData, college: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Target Career Goal</label>
+              <select
+                className="input text-xs font-semibold"
                 value={formData.targetRole}
                 onChange={(e) => setFormData({ ...formData, targetRole: e.target.value })}
-              />
+              >
+                {[
+                  'Full Stack Engineer',
+                  'Frontend Engineer',
+                  'Backend Engineer',
+                  'AI / Machine Learning Engineer',
+                  'Data Scientist',
+                  'Cloud & DevOps Engineer',
+                  'Mobile App Developer',
+                ].map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setModalOpen(false)} className="btn-ghost text-xs">
@@ -161,3 +243,4 @@ export default function Profile() {
     </AppShell>
   )
 }
+

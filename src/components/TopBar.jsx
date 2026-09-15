@@ -1,8 +1,8 @@
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, Menu } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
-export default function TopBar() {
+export default function TopBar({ onToggleMobile }) {
   const { user, profile } = useAuth()
   const { isLight, toggleTheme } = useTheme()
   const name =
@@ -19,7 +19,17 @@ export default function TopBar() {
     .toUpperCase()
 
   return (
-    <div className="flex items-center justify-end h-12 border-b border-white/5 px-8">
+    <div className="flex items-center justify-between md:justify-end h-14 border-b border-white/5 px-4 sm:px-8">
+      {/* Mobile Menu Toggle Button */}
+      <button
+        onClick={onToggleMobile}
+        className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 text-gray-400 hover:text-heading hover:bg-white/5 transition"
+        title="Open Navigation"
+        aria-label="Open Navigation"
+      >
+        <Menu size={18} />
+      </button>
+
       <div className="flex items-center gap-3">
         <button
           onClick={toggleTheme}

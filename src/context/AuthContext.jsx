@@ -87,45 +87,60 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let active = true
 
-    // Check Supabase session first
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return
-      const u = data.session?.user ?? null
-      if (u) {
-        setSession(data.session)
-        setUser(u)
-        setLoading(false)
-        loadProfile(u)
-      } else {
-        // Fall back to stored local session
-        const local = getLocalSession()
-        if (local) {
-          setSession({ user: local })
-          setUser(local)
-          setProfile({
-            id: local.id,
-            full_name: local.user_metadata?.full_name || local.email,
-            role: local.user_metadata?.role || 'student',
-            usn: local.user_metadata?.usn,
-          })
+    // Hydrate local session synchronously for instant initial load (< 10ms)
+    const local = getLocalSession()
+    if (local) {
+      setSession({ user: local })
+      setUser(local)
+      setProfile({
+        id: local.id,
+        full_name: local.user_metadata?.full_name || local.email,
+        role: local.user_metadata?.role || 'student',
+        usn: local.user_metadata?.usn,
+      })
+      setLoading(false)
+    }
+
+    // 1s timeout safeguard so remote Supabase API latency doesn't hang app startup
+    const timeoutId = setTimeout(() => {
+      if (active) setLoading(false)
+    }, 1000)
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        clearTimeout(timeoutId)
+        if (!active) return
+        const u = data.session?.user ?? null
+        if (u) {
+          setSession(data.session)
+          setUser(u)
+          loadProfile(u)
+        } else if (!local) {
+          setSession(null)
+          setUser(null)
         }
         setLoading(false)
+      })
+      .catch(() => {
+        clearTimeout(timeoutId)
+        if (active) setLoading(false)
+      })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const u = nextSession?.user ?? null
+      if (u) {
+        setSession(nextSession)
+        setUser(u)
+        loadProfile(u)
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        const u = nextSession?.user ?? null
-        if (u) {
-          setSession(nextSession)
-          setUser(u)
-          loadProfile(u)
-        }
-      }
-    )
-
     return () => {
       active = false
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [loadProfile])

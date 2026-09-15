@@ -25,6 +25,8 @@ import {
   ROLE_SKILL_BENCHMARKS,
 } from '../api/skills'
 
+import { useAuth } from '../context/AuthContext'
+
 const LEVELS = ['beginner', 'intermediate', 'advanced', 'expert']
 const LEVEL_PCT = {
   beginner: 25,
@@ -34,15 +36,43 @@ const LEVEL_PCT = {
 }
 
 const TARGET_ROLES = [
-  'Full Stack Developer',
-  'Frontend Developer',
+  'Full Stack Engineer',
+  'Frontend Engineer',
   'Backend Engineer',
-  'AI / ML Engineer',
-  'DevOps Engineer',
+  'AI / Machine Learning Engineer',
+  'Data Scientist',
+  'Cloud & DevOps Engineer',
+  'Mobile App Developer',
 ]
 
 export default function Skills() {
-  const [targetRole, setTargetRole] = useState('Full Stack Developer')
+  const { profile } = useAuth()
+  const [targetRole, setTargetRole] = useState(() => {
+    try {
+      const raw = localStorage.getItem('careeriq_onboarding')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.targetRole) return parsed.targetRole
+      }
+    } catch {
+      /* ignore */
+    }
+    return profile?.target_role || 'Full Stack Engineer'
+  })
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('careeriq_onboarding')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.targetRole) setTargetRole(parsed.targetRole)
+      } else if (profile?.target_role) {
+        setTargetRole(profile.target_role)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [profile])
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -196,13 +226,14 @@ export default function Skills() {
         </div>
       </div>
 
-      {/* AI Gap Analysis Diagnostics Panel */}
+      {/* Gap Analysis Diagnostics Panel */}
       {analyzing ? (
-        <div className="card p-6 mb-8 flex items-center gap-3">
+        <div className="card p-5 mb-8 flex items-center gap-3 border-accent/30 bg-accent/10">
           <Spinner />
-          <span className="text-xs font-semibold text-gray-300">
-            Running Google Gemini 2.5 Flash skill gap analysis for {targetRole}...
-          </span>
+          <div>
+            <p className="text-xs font-semibold text-heading">Analyzing skill gaps for {targetRole}...</p>
+            <p className="text-[11px] text-gray-400">Benchmarking profile against current market requirements</p>
+          </div>
         </div>
       ) : gapsData ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -259,16 +290,16 @@ export default function Skills() {
             </div>
           </div>
 
-          {/* AI Executive Summary */}
+          {/* Career Assessment Summary */}
           <div className="card p-5 border-accent/30 bg-gradient-to-br from-accent/10 via-base-850 to-transparent space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-accent-light flex items-center gap-1.5">
-              <Sparkles size={15} /> AI Career Assessment
+              <Sparkles size={15} /> Career Assessment
             </h4>
             <p className="text-xs text-gray-300 leading-relaxed">
               {gapsData.summary || `Focus on closing your top ${gapsData.gaps?.length || 0} skill gaps to boost your hiring readiness.`}
             </p>
             <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[11px] text-gray-400 font-medium">Engine: Gemini 2.5 Flash</span>
+              <span className="text-[11px] text-gray-400 font-medium">Market Benchmark</span>
               <span className="badge bg-teal/20 text-teal text-[11px]">Real-Time Market Sync</span>
             </div>
           </div>
@@ -287,17 +318,32 @@ export default function Skills() {
 
           {loading ? (
             <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-16" />
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="card p-4 flex items-center justify-between gap-4">
+                  <div className="w-1/3 space-y-1">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <div className="flex-1 max-w-xs">
+                    <Skeleton className="h-2.5 w-full rounded-full" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                  </div>
+                </div>
               ))}
             </div>
           ) : skills.length === 0 ? (
             <div className="card p-8 text-center space-y-3">
               <Brain size={36} className="mx-auto text-gray-500" />
-              <p className="text-sm font-semibold text-heading">No skills tracked yet</p>
+              <p className="text-sm font-semibold text-heading">No skills added yet</p>
               <p className="text-xs text-gray-400">
-                Click "Add Skill" above or use the quick add options in the gap analysis panel.
+                No skills added yet. Add your skills to see how you compare with the {targetRole} requirements.
               </p>
+              <button onClick={() => setModalOpen(true)} className="btn-primary text-xs px-4 py-2 mt-2">
+                <Plus size={14} /> Add Skill
+              </button>
             </div>
           ) : (
             Object.entries(grouped).map(([category, list]) => (

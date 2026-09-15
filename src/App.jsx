@@ -16,6 +16,7 @@ const ResumeBuilder = lazy(() => import('./pages/ResumeBuilder'))
 const DSA = lazy(() => import('./pages/DSA'))
 const Aptitude = lazy(() => import('./pages/Aptitude'))
 const Communication = lazy(() => import('./pages/Communication'))
+const Applications = lazy(() => import('./pages/Applications'))
 const Jobs = lazy(() => import('./pages/Jobs'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Profile = lazy(() => import('./pages/Profile'))
@@ -121,6 +122,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Communication />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applications"
+            element={
+              <ProtectedRoute>
+                <Applications />
               </ProtectedRoute>
             }
           />

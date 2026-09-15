@@ -8,7 +8,7 @@ export const SAMPLE_JOBS = [
     location: 'Bangalore, India (Hybrid)',
     type: 'Full-Time',
     experience: '0-2 Years',
-    salary: '₹12,000,00 - ₹18,000,00 / yr',
+    salary: '₹12L – ₹18L / year',
     skills: ['React', 'Node.js', 'TypeScript', 'SQL', 'System Design'],
     description:
       'We are looking for a passionate Full Stack Software Engineer to build scalable web applications, REST APIs, and microservices.',
@@ -21,7 +21,7 @@ export const SAMPLE_JOBS = [
     location: 'Remote',
     type: 'Full-Time',
     experience: '0-1 Years',
-    salary: '₹14,000,00 - ₹22,000,00 / yr',
+    salary: '₹14L – ₹22L / year',
     skills: ['Python', 'PyTorch', 'LLMs', 'Docker', 'REST APIs'],
     description:
       'Join our AI research team to train fine-tuned neural models, build generative AI pipelines, and deploy scalable AI APIs.',
@@ -34,7 +34,7 @@ export const SAMPLE_JOBS = [
     location: 'Hyderabad, India',
     type: 'Full-Time',
     experience: '0-2 Years',
-    salary: '₹10,000,00 - ₹15,000,00 / yr',
+    salary: '₹10L – ₹15L / year',
     skills: ['React', 'JavaScript', 'Tailwind CSS', 'Redux', 'Git'],
     description:
       'Craft beautiful, responsive UI components and interactive dashboards for global Enterprise SaaS products.',
@@ -47,7 +47,7 @@ export const SAMPLE_JOBS = [
     location: 'Pune, India (Remote)',
     type: 'Full-Time',
     experience: '1-3 Years',
-    salary: '₹13,000,00 - ₹20,000,00 / yr',
+    salary: '₹13L – ₹20L / year',
     skills: ['Node.js', 'Express', 'PostgreSQL', 'Docker', 'AWS'],
     description:
       'Design RESTful microservices, optimize database queries, and maintain high-throughput backend APIs.',
@@ -60,7 +60,7 @@ export const SAMPLE_JOBS = [
     location: 'Bangalore, India (Remote)',
     type: 'Full-Time',
     experience: '1-3 Years',
-    salary: '₹15,000,00 - ₹24,000,00 / yr',
+    salary: '₹15L – ₹24L / year',
     skills: ['Docker', 'Kubernetes', 'AWS', 'Terraform', 'CI/CD'],
     description:
       'Manage cloud infrastructure automation, maintain Kubernetes clusters, and build automated CI/CD deployment pipelines.',

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import Logo from '../components/Logo'
 import { useAuth } from '../context/AuthContext'
+import { upsertProfile } from '../api/profiles'
 
 const TARGET_ROLES = [
   'Full Stack Engineer',
@@ -42,7 +43,7 @@ const SKILL_SUGGESTIONS = [
 export default function Onboarding() {
   const [step, setStep] = useState(1)
   const [selectedSkills, setSelectedSkills] = useState(['React', 'JavaScript'])
-  const { user } = useAuth()
+  const { user, refreshProfile } = useAuth()
   const navigate = useNavigate()
 
   const {
@@ -68,7 +69,7 @@ export default function Onboarding() {
     )
   }
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     const onboardingProfile = {
       ...data,
       skills: selectedSkills,
@@ -76,6 +77,16 @@ export default function Onboarding() {
     }
     try {
       localStorage.setItem('careeriq_onboarding', JSON.stringify(onboardingProfile))
+    } catch {
+      /* noop */
+    }
+    try {
+      await upsertProfile({
+        full_name: data.fullName,
+        usn: data.usn,
+        target_role: data.targetRole,
+      })
+      if (refreshProfile) await refreshProfile()
     } catch {
       /* noop */
     }

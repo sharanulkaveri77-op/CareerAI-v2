@@ -1,51 +1,68 @@
 import { invokeAi } from './ai'
+import { getSkills, ROLE_SKILL_BENCHMARKS } from './skills'
 
-function buildRoleSpecificFallback(from, to) {
+export function buildRoleSpecificFallback(from, to, userSkillsList = []) {
   const targetLower = (to || '').toLowerCase()
-  const fromLower = (from || '').toLowerCase()
 
-  let phase1Skills = ['Core Data Structures', 'Git & GitHub Workflow', 'Clean Code Practices']
-  let phase2Skills = ['System Architecture', 'Database Management', 'REST API Design']
+  // Find benchmark skills for target role
+  const benchmarkKey =
+    Object.keys(ROLE_SKILL_BENCHMARKS).find((k) => k.toLowerCase().includes(targetLower)) ||
+    'Full Stack Developer'
+  const benchmark = ROLE_SKILL_BENCHMARKS[benchmarkKey] || ROLE_SKILL_BENCHMARKS['Full Stack Developer']
+
+  const userSkillSet = new Set(
+    (userSkillsList || []).map((s) => (typeof s === 'string' ? s : s.name || '').toLowerCase().trim())
+  )
+  const missingGaps = benchmark
+    .filter((b) => !userSkillSet.has(b.name.toLowerCase().trim()))
+    .map((b) => b.name)
+
+  let phase1Skills = missingGaps.slice(0, 2)
+  if (phase1Skills.length === 0) phase1Skills = ['Core Data Structures', 'Git & GitHub Workflow']
+  if (!phase1Skills.includes('Clean Code Practices')) phase1Skills.push('Clean Code Practices')
+
+  let phase2Skills = missingGaps.slice(2, 4)
+  if (phase2Skills.length === 0) phase2Skills = ['System Architecture', 'Database Management']
+  if (!phase2Skills.includes('REST API Design')) phase2Skills.push('REST API Design')
+
   let phase3Skills = ['Cloud Deployment (AWS/Vercel)', 'CI/CD Pipelines', 'Performance Optimization']
 
   if (targetLower.includes('frontend') || targetLower.includes('react')) {
-    phase1Skills = ['JavaScript ES6+', 'React.js', 'Tailwind CSS', 'TypeScript']
-    phase2Skills = ['Next.js App Router', 'Redux Toolkit / Zustand', 'Web Vitals & Performance']
+    if (phase1Skills.length < 3) phase1Skills = ['JavaScript ES6+', 'React.js', 'Tailwind CSS', 'TypeScript']
     phase3Skills = ['Jest / React Testing Library', 'GraphQL & Micro-frontends', 'Vercel Deployment']
   } else if (targetLower.includes('backend') || targetLower.includes('node') || targetLower.includes('java')) {
-    phase1Skills = ['Java / Node.js', 'Spring Boot / Express.js', 'PostgreSQL & SQL Queries']
-    phase2Skills = ['Redis Caching', 'Kafka / RabbitMQ Messaging', 'Docker & Microservices']
+    if (phase1Skills.length < 3) phase1Skills = ['Java / Node.js', 'Spring Boot / Express.js', 'PostgreSQL & SQL Queries']
     phase3Skills = ['AWS ECS / Kubernetes', 'API Security & OAuth2', 'Load Testing & Monitoring']
   } else if (targetLower.includes('ai') || targetLower.includes('machine learning') || targetLower.includes('data')) {
-    phase1Skills = ['Python', 'Pandas & NumPy', 'Linear Algebra & Statistics', 'Scikit-Learn']
-    phase2Skills = ['PyTorch / TensorFlow', 'Neural Networks & Deep Learning', 'NLP & Computer Vision']
+    if (phase1Skills.length < 3) phase1Skills = ['Python', 'Pandas & NumPy', 'Linear Algebra & Statistics']
     phase3Skills = ['LLM Fine-Tuning & RAG', 'LangChain / LlamaIndex', 'FastAPI & Model Deployment']
   } else if (targetLower.includes('devops') || targetLower.includes('cloud')) {
-    phase1Skills = ['Linux Administration', 'Shell Scripting', 'Docker Containerization']
-    phase2Skills = ['Kubernetes Orchestration', 'Terraform (IaC)', 'AWS / Azure Cloud Services']
+    if (phase1Skills.length < 3) phase1Skills = ['Linux Administration', 'Shell Scripting', 'Docker Containerization']
     phase3Skills = ['Jenkins / GitHub Actions CI/CD', 'Prometheus & Grafana', 'DevSecOps & IAM']
   }
+
+  const gapSummary = missingGaps.length > 0 ? ` (Targeting gaps: ${missingGaps.slice(0, 3).join(', ')})` : ''
 
   return {
     roadmap: {
       stages: [
         {
-          title: `Phase 1: Foundations (${from} → ${to})`,
+          title: `Phase 1: Priority Skill Gaps & Foundations (${from} → ${to})`,
           duration: '1 - 2 Months',
-          description: `Master core programming syntax, fundamentals, and essential developer tools required for ${to}.`,
+          description: `Master essential programming fundamentals and prioritize key missing gaps (${phase1Skills.slice(0, 2).join(', ')}) required for ${to}.`,
           skills: phase1Skills,
           milestones: [
-            `Complete ${to} foundational coursework & exercises`,
-            `Build first mini-project applying ${phase1Skills[0]} and ${phase1Skills[1]}`,
+            `Complete ${to} coursework focusing on ${phase1Skills[0] || 'fundamentals'}`,
+            `Build mini-project applying ${phase1Skills[0] || 'core concepts'} and ${phase1Skills[1] || 'tools'}`,
           ],
         },
         {
           title: `Phase 2: Advanced ${to} Architecture & Projects`,
           duration: '2 - 3 Months',
-          description: `Build complex end-to-end applications showcasing database management, API design, and system architecture.`,
+          description: `Build complex end-to-end applications showcasing database management, API design, and system architecture${gapSummary}.`,
           skills: phase2Skills,
           milestones: [
-            `Develop a production-grade project incorporating ${phase2Skills[0]} and ${phase2Skills[1]}`,
+            `Develop a production-grade project incorporating ${phase2Skills[0] || 'system design'} and ${phase2Skills[1] || 'databases'}`,
             'Implement comprehensive automated unit and integration tests',
           ],
         },
@@ -66,7 +83,7 @@ function buildRoleSpecificFallback(from, to) {
           skills: ['ATS Resume Polish', 'System Design Interview Practice', 'STAR Behavioral Coaching'],
           milestones: [
             `Pass ATS resume scan with >85% match for ${to}`,
-            `Complete 3 live or AI mock interviews specifically for ${to}`,
+            `Complete 3 mock interviews specifically for ${to}`,
           ],
         },
       ],
@@ -75,11 +92,21 @@ function buildRoleSpecificFallback(from, to) {
 }
 
 export const generateRoadmap = async (data) => {
-  const from = data?.from || 'Current Role'
-  const to = data?.to || 'Target Role'
+  const from = (data?.from && data.from.trim()) || 'Student'
+  const to = (data?.to && data.to.trim()) || 'Full Stack Engineer'
+
+  let userSkillsList = data?.userSkills || []
+  if (!userSkillsList.length) {
+    try {
+      const sRes = await getSkills()
+      userSkillsList = sRes.data?.skills || sRes.data || []
+    } catch {
+      /* ignore */
+    }
+  }
 
   try {
-    const result = await invokeAi('roadmap', { from, to })
+    const result = await invokeAi('roadmap', { from, to, userSkills: userSkillsList.map((s) => s.name || s) })
     if (result.data?.roadmap?.stages || result.data?.stages) {
       return result
     }
@@ -87,5 +114,5 @@ export const generateRoadmap = async (data) => {
     console.warn('AI Roadmap API call fallback:', e)
   }
 
-  return { data: buildRoleSpecificFallback(from, to) }
+  return { data: buildRoleSpecificFallback(from, to, userSkillsList) }
 }

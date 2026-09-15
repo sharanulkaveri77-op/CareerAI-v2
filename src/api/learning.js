@@ -122,17 +122,17 @@ function maxSubarraySum(arr, k) {
       overview: 'Comprehensive AI developer guide covering Google Gemini 2.5 Flash API integration, RAG (Retrieval-Augmented Generation), and Agentic Workflows.',
       modules: [
         'Module 1: Prompt Engineering Techniques (Few-Shot, Chain-of-Thought)',
-        'Module 2: Gemini 2.5 Flash API JSON Schema Enforcement',
+        'Module 2: Gemini 3.6 Flash API JSON Schema Enforcement',
         'Module 3: Vector Embeddings & Semantic Document Search',
         'Module 4: Building Autonomous AI Coding Agents',
       ],
       keyTakeaways: [
-        'Leverage Gemini 2.5 Flash for sub-second structured JSON responses',
+        'Leverage Gemini 3.6 Flash for sub-second structured JSON responses',
         'Implement fallback model chains for 99.99% uptime resiliency',
         'Build self-correcting AI agent loops with tool usage capabilities',
       ],
-      codeSnippet: `// Gemini 2.5 Flash API Call with JSON Enforcement
-const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + API_KEY, {
+      codeSnippet: `// Gemini 3.6 Flash API Call with JSON Enforcement
+const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + API_KEY, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

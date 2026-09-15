@@ -102,13 +102,7 @@ export default function Communication() {
       })
       setFeedback(res)
     } catch {
-      setFeedback({
-        clarityScore: 15,
-        professionalismRating: 'Needs Polish',
-        topicRelevance: 'Off-Topic / Incorrect',
-        grammarFeedback: 'Your response is incomplete or off-topic. Please address the prompt with a full STAR answer (~75-150 words).',
-        modelAnswer: 'A full response for this prompt should include your background, relevant projects, and career goals...',
-      })
+      alert('Unable to process speech evaluation right now. Please try submitting again.')
     } finally {
       setEvaluating(false)
     }

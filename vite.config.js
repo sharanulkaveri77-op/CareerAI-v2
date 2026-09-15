@@ -5,6 +5,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: true,
+    warmup: {
+      clientFiles: [
+        './src/main.jsx',
+        './src/App.jsx',
+        './src/pages/Landing.jsx',
+        './src/pages/Login.jsx',
+        './src/pages/Dashboard.jsx',
+      ],
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://localhost:5000',
@@ -12,4 +22,17 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'lucide-react',
+      '@supabase/supabase-js',
+      'recharts',
+      'react-hook-form',
+    ],
+    exclude: ['pdfjs-dist'],
+  },
 })
+

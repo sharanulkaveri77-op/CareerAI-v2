@@ -15,6 +15,7 @@ import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { Spinner } from '../components/Feedback'
 import { SAMPLE_JOBS, searchJobs, computeSkillMatch } from '../api/jobs'
+import { addApplication } from '../api/applications'
 
 export default function Jobs() {
   const [query, setQuery] = useState('')
@@ -192,7 +193,20 @@ export default function Jobs() {
                 </span>
               ) : (
                 <button
-                  onClick={() => setApplied(true)}
+                  onClick={async () => {
+                    try {
+                      await addApplication({
+                        company: selectedJob.company,
+                        role: selectedJob.title,
+                        location: selectedJob.location,
+                        status: 'Applied',
+                        applied_at: new Date().toISOString().split('T')[0],
+                      })
+                    } catch {
+                      /* non-fatal */
+                    }
+                    setApplied(true)
+                  }}
                   className="btn-teal px-6 py-2 text-xs font-semibold flex items-center gap-1.5"
                 >
                   Apply Now <ExternalLink size={14} />

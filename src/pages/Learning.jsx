@@ -50,11 +50,9 @@ export default function Learning() {
       const saved = localStorage.getItem(LOCAL_COMPLETED_KEY)
       if (saved) {
         setCompletedIds(JSON.parse(saved))
-      } else {
-        setCompletedIds(['learning-1'])
       }
     } catch {
-      setCompletedIds(['learning-1'])
+      /* ignore */
     }
 
     let active = true
@@ -72,6 +70,15 @@ export default function Learning() {
       const updated = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
       try {
         localStorage.setItem(LOCAL_COMPLETED_KEY, JSON.stringify(updated))
+        const activeMat = items.find((m) => m._id === id) || items[0]
+        if (activeMat) {
+          const isDone = updated.includes(activeMat._id)
+          localStorage.setItem('careeriq_active_learning', JSON.stringify({
+            title: activeMat.title,
+            progressPct: isDone ? 100 : 50,
+            subtitle: `${activeMat.category || 'Course'} · ${isDone ? 'Completed' : 'In Progress'}`,
+          }))
+        }
       } catch {
         /* noop */
       }
@@ -118,7 +125,7 @@ export default function Learning() {
       <PageHeader
         icon={GraduationCap}
         title="Learning Hub"
-        subtitle="Curated courses, video lectures, and technical deep-dives powered by Google Gemini 2.5"
+        subtitle="Curated courses, technical lessons, and hands-on learning paths."
       />
 
       {/* Progress & Stats Banner */}
@@ -164,13 +171,13 @@ export default function Learning() {
         </span>
       </div>
 
-      {/* AI Curation & Search Filter Bar */}
+      {/* Search & Filter Bar */}
       <form onSubmit={handleAiCurate} className="card p-4 flex flex-wrap gap-3 mb-6">
         <div className="relative flex-1 min-w-[240px]">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             className="input pl-10 text-xs"
-            placeholder="Search topic or ask Gemini (e.g., 'Next.js 14', 'GraphQL APIs', 'Docker')..."
+            placeholder="Search topic or technical skill (e.g., 'Next.js 14', 'GraphQL APIs', 'Docker')..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -194,7 +201,7 @@ export default function Learning() {
             disabled={searchingAi || !query.trim()}
             className="btn-primary text-xs px-4 py-2.5 font-semibold flex items-center gap-1.5 shrink-0"
           >
-            {searchingAi ? <Spinner size={14} /> : <Sparkles size={14} />} Curate with AI
+            {searchingAi ? <Spinner size={14} /> : <BookOpen size={14} />} Curate Courses
           </button>
         </div>
       </form>
@@ -202,7 +209,20 @@ export default function Learning() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44" />
+            <div key={i} className="card p-5 space-y-3 flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-16 rounded-full" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="h-5 w-4/5 mt-1" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-7 w-24 rounded-lg" />
+              </div>
+            </div>
           ))}
         </div>
       ) : error ? (
@@ -214,7 +234,7 @@ export default function Learning() {
           </div>
           <p className="font-bold text-heading text-base">No learning materials found</p>
           <p className="text-xs text-gray-400 mt-1 max-w-md">
-            Click <strong className="text-accent-light">Curate with AI</strong> to generate fresh learning recommendations powered by Gemini 2.5!
+            Search for topics or browse categories above to find technical learning materials.
           </p>
         </div>
       ) : (

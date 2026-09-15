@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  LayoutGrid,
   Sparkles,
   Brain,
   FileText,
-  Search,
   ArrowRight,
   LineChart as LineIcon,
-  HeartPulse,
   Briefcase,
   Target,
   AlertTriangle,
@@ -17,30 +14,25 @@ import {
   MessageSquare,
   Video,
   CheckCircle2,
-  Award,
-  FilePlus,
   Upload,
-  GraduationCap,
-  User,
+  Calendar,
+  BookOpen,
+  Clock,
+  ChevronRight,
+  FolderKanban,
+  CheckSquare,
+  Square,
 } from 'lucide-react'
 import AppShell from '../components/AppShell'
-import PageHeader from '../components/PageHeader'
-import StatCard from '../components/StatCard'
 import MarketTrends from '../components/MarketTrends'
-import CareerHealth from '../components/CareerHealth'
 import Modal from '../components/Modal'
 import { Skeleton, ErrorState } from '../components/Feedback'
 import { getSummary, getTrends } from '../api/dashboard'
+import { getApplications } from '../api/applications'
 import { getSolvedProblems, SAMPLE_DSA_PROBLEMS } from '../api/dsa'
+import { getSkills, ROLE_SKILL_BENCHMARKS } from '../api/skills'
+import { upsertProfile } from '../api/profiles'
 import { useAuth } from '../context/AuthContext'
-
-const quickActions = [
-  { to: '/dsa', icon: Code2, title: 'DSA Practice', caption: 'Arrays & Trees', color: 'blue' },
-  { to: '/aptitude', icon: HelpCircle, title: 'Aptitude Tests', caption: 'Quant & Logic', color: 'orange' },
-  { to: '/communication', icon: MessageSquare, title: 'Communication', caption: 'HR & Intro Prep', color: 'teal' },
-  { to: '/interview', icon: Video, title: 'Mock Interview', caption: 'Voice & Video AI', color: 'pink' },
-  { to: '/resume', icon: FileText, title: 'Resume ATS Scanner', caption: 'Audit & Keyword Score', color: 'purple' },
-]
 
 const TARGET_ROLE_OPTIONS = [
   'Full Stack Engineer',
@@ -66,13 +58,15 @@ const POPULAR_SKILLS = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const [summary, setSummary] = useState(null)
   const [trends, setTrends] = useState(null)
+  const [applications, setApplications] = useState([])
+  const [userSkills, setUserSkills] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Setup Modal State for First-Time Users
+  // First-time setup modal state
   const [showSetupModal, setShowSetupModal] = useState(false)
   const [setupForm, setSetupForm] = useState({
     fullName: profile?.full_name || user?.user_metadata?.full_name || '',
@@ -102,6 +96,34 @@ export default function Dashboard() {
     }
   })
 
+  const [activeLearning, setActiveLearning] = useState(() => {
+    try {
+      const raw = localStorage.getItem('careeriq_active_learning')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })
+
+  const [upcomingEvents, setUpcomingEvents] = useState(() => {
+    try {
+      const raw = localStorage.getItem('careeriq_upcoming_events')
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Task completion state for Today's Plan
+  const [completedTasks, setCompletedTasks] = useState(() => {
+    try {
+      const raw = localStorage.getItem('careeriq_todays_plan_completed')
+      return raw ? JSON.parse(raw) : {}
+    } catch {
+      return {}
+    }
+  })
+
   useEffect(() => {
     let active = true
     Promise.all([getSummary(), getTrends()])
@@ -113,30 +135,30 @@ export default function Dashboard() {
       .catch((e) => active && setError(e.userMessage || 'Failed to load dashboard'))
       .finally(() => active && setLoading(false))
 
-    // Check if first-time setup is needed
+    // Check first-time setup
     const done = localStorage.getItem('careeriq_onboarding')
     if (!done) {
       setShowSetupModal(true)
     }
+
+    // Load applications
+    getApplications()
+      .then((apps) => active && setApplications(apps || []))
+      .catch(() => {})
+
+    // Load user skills
+    getSkills()
+      .then((res) => {
+        if (active) setUserSkills(res.data?.skills || [])
+      })
+      .catch(() => {})
 
     return () => {
       active = false
     }
   }, [])
 
-  // Sync state if localStorage changes
-  const reloadLocalData = () => {
-    try {
-      const rawOnb = localStorage.getItem('careeriq_onboarding')
-      if (rawOnb) setOnboardingData(JSON.parse(rawOnb))
-      const rawRes = localStorage.getItem('careeriq_latest_resume_audit')
-      if (rawRes) setResumeAudit(JSON.parse(rawRes))
-    } catch {
-      /* noop */
-    }
-  }
-
-  const handleSaveSetup = (e) => {
+  const handleSaveSetup = async (e) => {
     e.preventDefault()
     const payload = {
       ...setupForm,
@@ -144,6 +166,16 @@ export default function Dashboard() {
     }
     try {
       localStorage.setItem('careeriq_onboarding', JSON.stringify(payload))
+    } catch {
+      /* noop */
+    }
+    try {
+      await upsertProfile({
+        full_name: setupForm.fullName,
+        usn: setupForm.usn,
+        target_role: setupForm.targetRole,
+      })
+      if (refreshProfile) await refreshProfile()
     } catch {
       /* noop */
     }
@@ -160,13 +192,21 @@ export default function Dashboard() {
     }))
   }
 
+  const toggleTaskCompleted = (taskId) => {
+    setCompletedTasks((prev) => {
+      const next = { ...prev, [taskId]: !prev[taskId] }
+      try {
+        localStorage.setItem('careeriq_todays_plan_completed', JSON.stringify(next))
+      } catch {
+        /* noop */
+      }
+      return next
+    })
+  }
+
   // DSA Solved Progress
   const solvedProblemIds = getSolvedProblems()
   const solvedCount = solvedProblemIds.length
-  const solvedProblems = SAMPLE_DSA_PROBLEMS.filter((p) => solvedProblemIds.includes(p.id))
-  const easySolved = solvedProblems.filter((p) => p.difficulty === 'Easy').length
-  const medSolved = solvedProblems.filter((p) => p.difficulty === 'Medium').length
-  const hardSolved = solvedProblems.filter((p) => p.difficulty === 'Hard').length
 
   // Aptitude Score Progress
   let storedAptitude = null
@@ -177,287 +217,674 @@ export default function Dashboard() {
     /* noop */
   }
 
+  // Derived user details
   const userName = onboardingData?.fullName || profile?.full_name || user?.user_metadata?.full_name || 'Student'
   const targetRole = onboardingData?.targetRole || profile?.target_role || summary?.targetRole || 'Full Stack Engineer'
-  const skillGapsCount = summary?.skillGaps ?? 0
 
-  // Dynamic Career Health Calculation Breakdown:
-  // 1. Profile / Target Role Setup: 25 points
-  // 2. Resume ATS Analysis Score: up to 30 points (0 if no resume uploaded)
-  // 3. DSA Solved Progress: up to 25 points (based on 10 solved target)
-  // 4. Aptitude Score: up to 20 points
+  // Career Health Breakdown (Dynamic calculation)
   const hasProfileSetup = !!onboardingData || (profile?.target_role && profile.target_role !== 'Not Set')
   const profilePoints = hasProfileSetup ? 25 : 0
   const resumePoints = resumeAudit ? Math.round(((resumeAudit.score || 0) / 100) * 30) : 0
   const dsaPoints = Math.min(25, Math.round((solvedCount / 10) * 25))
   const aptitudePoints = storedAptitude !== null ? Math.round((storedAptitude / 100) * 20) : 0
-
   const careerHealthScore = Math.min(100, profilePoints + resumePoints + dsaPoints + aptitudePoints)
 
-  const stats = [
-    {
-      icon: Briefcase,
-      label: 'Target Role',
-      value: targetRole,
-      caption: 'Goal active',
-      accent: 'purple',
-    },
-    {
-      icon: FileText,
-      label: 'Resume ATS Score',
-      value: resumeAudit ? `${resumeAudit.score}% Match` : 'Not Uploaded',
-      caption: resumeAudit ? `ATS ${resumeAudit.atsPass ? 'Pass ✓' : 'Audit Complete'}` : 'Upload to boost health +30%',
-      accent: 'pink',
-    },
-    {
-      icon: Code2,
-      label: 'DSA Solved',
-      value: `${solvedCount} Solved`,
-      caption: `${easySolved} Easy · ${medSolved} Medium · ${hardSolved} Hard`,
-      accent: 'blue',
-    },
-    {
-      icon: Target,
-      label: 'Aptitude Score',
-      value: storedAptitude !== null ? `${storedAptitude}%` : 'Not Taken',
-      caption: storedAptitude !== null ? 'Quant & Logic score' : 'Take a 5-min test',
-      accent: 'orange',
-    },
-    {
-      icon: AlertTriangle,
-      label: 'Skill Gaps Tracked',
-      value: `${skillGapsCount} Tracked`,
-      caption: skillGapsCount > 0 ? 'High demand gaps' : 'No gaps tracked yet',
-      accent: 'teal',
-    },
-  ]
+  // Dynamic Readiness Label
+  const readinessLabel =
+    careerHealthScore >= 75
+      ? 'High readiness'
+      : careerHealthScore >= 45
+      ? 'Moderate readiness'
+      : 'Getting started'
+
+  // Dynamic Today's Plan Tasks
+  const rawPlanTasks = []
+
+  if (!resumeAudit) {
+    rawPlanTasks.push({
+      id: 'task-resume',
+      title: 'Upload resume for ATS audit',
+      category: 'Resume',
+      estTime: '10 min',
+      priority: 'High priority',
+      route: '/resume',
+      btnText: 'Upload',
+      ctaText: 'Upload & Analyze',
+      reason: 'Your resume score represents 30% of your career readiness score.',
+    })
+  }
+
+  if (solvedCount < 5) {
+    rawPlanTasks.push({
+      id: 'task-dsa',
+      title: 'Solve 2 DSA problems (Arrays & Two Pointers)',
+      category: 'DSA',
+      estTime: '20 min',
+      priority: 'High priority',
+      route: '/dsa',
+      btnText: 'Start',
+      ctaText: 'Start Practice',
+      reason: 'DSA is currently one of your top growth areas for your target role.',
+    })
+  } else {
+    rawPlanTasks.push({
+      id: 'task-dsa-adv',
+      title: 'Solve 1 Medium DSA problem',
+      category: 'DSA',
+      estTime: '25 min',
+      priority: 'Medium priority',
+      route: '/dsa',
+      btnText: 'Solve',
+      ctaText: 'Start Practice',
+      reason: 'Consistent problem solving boosts technical interview readiness.',
+    })
+  }
+
+  if (storedAptitude === null) {
+    rawPlanTasks.push({
+      id: 'task-aptitude',
+      title: 'Take 5-minute Quantitative & Logic test',
+      category: 'Aptitude',
+      estTime: '10 min',
+      priority: 'Medium priority',
+      route: '/aptitude',
+      btnText: 'Take Test',
+      ctaText: 'Take Test',
+      reason: 'Aptitude testing is required for initial screening rounds.',
+    })
+  }
+
+  rawPlanTasks.push({
+    id: 'task-comm',
+    title: 'Practice 2-minute self-introduction',
+    category: 'Communication',
+    estTime: '10 min',
+    priority: 'Medium priority',
+    route: '/communication',
+    btnText: 'Practice',
+    ctaText: 'Start Practice',
+    reason: 'Refine your verbal intro with instant speech feedback.',
+  })
+
+  // Pick top 3 tasks for Today's Plan
+  const planTasks = rawPlanTasks.slice(0, 3)
+  const completedCount = planTasks.filter((t) => completedTasks[t.id]).length
+  const nextStepTask = planTasks.find((t) => !completedTasks[t.id]) || planTasks[0]
+
+  // Dynamic Target Role Skills breakdown based on ROLE_SKILL_BENCHMARKS & user skills
+  const benchmarkKeyMap = {
+    'Full Stack Engineer': 'Full Stack Developer',
+    'Frontend Engineer': 'Frontend Developer',
+    'Backend Engineer': 'Backend Engineer',
+    'AI / Machine Learning Engineer': 'AI / ML Engineer',
+    'Data Scientist': 'AI / ML Engineer',
+    'Cloud & DevOps Engineer': 'DevOps Engineer',
+    'Mobile App Developer': 'Frontend Developer',
+  }
+  const mappedKey = benchmarkKeyMap[targetRole] || targetRole
+  const benchmarkSkills = ROLE_SKILL_BENCHMARKS[mappedKey] || ROLE_SKILL_BENCHMARKS[targetRole] || ROLE_SKILL_BENCHMARKS['Full Stack Developer']
+
+  const userSkillMap = new Map()
+  userSkills.forEach((s) => {
+    if (s.name) userSkillMap.set(s.name.toLowerCase().trim(), s.level || 'beginner')
+  })
+
+  const roleSkillBreakdown = benchmarkSkills.slice(0, 6).map((req) => {
+    const userLevel = userSkillMap.get(req.name.toLowerCase().trim())
+    let status = 'Weak'
+    let color = 'text-danger bg-danger/10 border-danger/20'
+
+    if (userLevel === 'advanced' || userLevel === 'expert') {
+      status = 'Strong'
+      color = 'text-teal bg-teal/10 border-teal/20'
+    } else if (userLevel === 'intermediate') {
+      status = 'Good'
+      color = 'text-blue bg-blue/10 border-blue/20'
+    } else if (userLevel === 'beginner') {
+      status = 'Needs work'
+      color = 'text-orange bg-orange/10 border-orange/20'
+    }
+
+    return {
+      name: req.name,
+      status,
+      color,
+    }
+  })
+
+  // Dynamic Tracked Skill Gaps
+  const missingOrWeak = benchmarkSkills.filter((req) => {
+    const lvl = userSkillMap.get(req.name.toLowerCase().trim())
+    return !lvl || lvl === 'beginner'
+  })
+
+  const skillGapsList =
+    missingOrWeak.length > 0
+      ? missingOrWeak.slice(0, 3).map((sk) => {
+          const lvl = userSkillMap.get(sk.name.toLowerCase().trim())
+          const isMissing = !lvl
+          return {
+            title: sk.name,
+            priority: isMissing ? 'High priority' : 'Medium priority',
+            note: isMissing ? `Required for ${targetRole}` : `Current level: Beginner → Needs: ${sk.level}`,
+            route: '/skills',
+            action: isMissing ? 'Add Skill' : 'Improve',
+          }
+        })
+      : [
+          {
+            title: 'System Design',
+            priority: 'High priority',
+            note: 'Critical for mid/senior technical interviews',
+            route: '/skills',
+            action: 'Practice',
+          },
+          {
+            title: 'Data Structures & Algorithms',
+            priority: 'High priority',
+            note: `${solvedCount} problems solved so far`,
+            route: '/dsa',
+            action: 'Practice',
+          },
+        ]
+
+  // Recent Activity Feed
+  const recentActivities = []
+  if (resumeAudit) {
+    recentActivities.push({
+      title: `Resume scanned (${resumeAudit.score}% match)`,
+      time: 'Recently',
+      route: '/resume',
+    })
+  }
+  if (solvedCount > 0) {
+    recentActivities.push({
+      title: `${solvedCount} DSA problems completed`,
+      time: 'Active',
+      route: '/dsa',
+    })
+  }
+  if (storedAptitude !== null) {
+    recentActivities.push({
+      title: `Aptitude test completed (${storedAptitude}% score)`,
+      time: 'Completed',
+      route: '/aptitude',
+    })
+  }
+  if (onboardingData) {
+    recentActivities.push({
+      title: `Target role updated to ${targetRole}`,
+      time: 'Setup complete',
+      route: '/settings',
+    })
+  }
 
   return (
     <AppShell>
-      {/* Personalized Welcome Banner */}
-      <div className="card p-6 mb-6 border-accent/30 bg-gradient-to-br from-accent/15 via-base-850 to-transparent flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* 1. Header / Greeting */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-6 border-b border-white/5">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/20 text-accent-light text-xs font-semibold mb-2">
-            <Sparkles size={13} /> AI Career Copilot Active
-          </div>
-          <h1 className="text-2xl font-extrabold text-heading">
+          <h1 className="text-2xl font-bold text-heading flex items-center gap-2">
             Good morning, {userName} 👋
           </h1>
-          <p className="text-xs text-gray-400 mt-1 max-w-xl leading-relaxed">
-            Here is your career readiness overview. Your current Career Health is{' '}
-            <strong className="text-teal font-semibold">{careerHealthScore}% Recruiter Ready</strong> for{' '}
-            <strong className="text-heading font-semibold">{targetRole}</strong>.
+          <p className="text-sm text-gray-400 mt-1 flex items-center gap-2">
+            <span className="font-medium text-gray-200">{targetRole}</span>
+            <span className="text-gray-600">·</span>
+            <span className="text-teal font-semibold">{careerHealthScore}% career ready</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-gray-400">
+              {readinessLabel}
+            </span>
           </p>
-
-          {!resumeAudit && (
-            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-pink-500/10 border border-pink-500/20 text-[11px] text-pink-300">
-              <Upload size={13} /> Upload your resume to unlock up to +30% health score boost!
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           {!resumeAudit && (
             <button
               onClick={() => navigate('/resume')}
-              className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+              className="btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5"
             >
               <Upload size={14} /> Upload Resume
             </button>
           )}
           <button
             onClick={() => setShowSetupModal(true)}
-            className="btn-ghost border border-white/10 text-xs px-4 py-2"
+            className="btn-ghost border border-white/10 text-xs px-3 py-2 text-gray-300 hover:text-white"
           >
-            Update Profile Preferences
+            Edit Goal
           </button>
         </div>
       </div>
 
-      {/* Quick Action Hub */}
-      <div className="mb-6">
-        <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
-          Daily Career Practice Hub
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {quickActions.map(({ to, icon: Icon, title, caption }) => (
-            <button
-              key={to}
-              onClick={() => navigate(to)}
-              className="card card-hover p-4 text-left relative group border-white/5 hover:border-accent/40 transition"
-            >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-purple shadow-glow-purple mb-3">
-                <Icon size={18} className="text-white" />
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* Left 2 Columns: Actionable Focus Area */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* 2. TODAY'S PLAN */}
+          <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  TODAY'S PLAN
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {planTasks.length} tasks · ~45 min estimated
+                </p>
               </div>
-              <p className="font-semibold text-heading text-sm">{title}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">{caption}</p>
-              <ArrowRight
-                size={14}
-                className="absolute bottom-3 right-3 text-gray-600 group-hover:text-accent-light transition"
-              />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        {loading
-          ? Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-32" />
-            ))
-          : stats.map((s) => <StatCard key={s.label} {...s} />)}
-      </div>
-
-      {/* Daily Recommendations & AI Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="card p-6 lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-heading text-base flex items-center gap-2">
-              <Sparkles size={18} className="text-accent-light" /> Today's AI Recommendations
-            </h3>
-            <span className="badge bg-purple-500/15 text-purple-400 text-xs">
-              3 Tasks Suggested
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {[
-              !resumeAudit
-                ? {
-                    title: 'Upload Resume for ATS Audit',
-                    subtitle: 'Extract skills, check formatting, and match target keywords.',
-                    route: '/resume',
-                    btn: 'Scan Resume',
-                  }
-                : {
-                    title: 'Practice Two Pointers DSA Problems',
-                    subtitle: 'Solve "Container With Most Water" to boost algorithm proficiency.',
-                    route: '/dsa',
-                    btn: 'Solve DSA',
-                  },
-              {
-                title: 'Review System Design Skill Gap',
-                subtitle: 'Learn database sharding and caching for target role.',
-                route: '/skills',
-                btn: 'View Skills',
-              },
-              {
-                title: 'Run 5-minute Mock Interview',
-                subtitle: 'Practice technical voice responses with STAR coaching.',
-                route: '/interview/ai',
-                btn: 'Start Interview',
-              },
-            ].map((rec, i) => (
-              <div
-                key={i}
-                className="p-4 rounded-xl border border-white/5 bg-base-900/60 flex items-center justify-between gap-4"
-              >
-                <div>
-                  <p className="font-semibold text-heading text-xs">{rec.title}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{rec.subtitle}</p>
-                </div>
-                <button
-                  onClick={() => navigate(rec.route)}
-                  className="btn-primary text-xs !py-1.5 !px-3.5 shrink-0"
-                >
-                  {rec.btn}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Readiness Gauge */}
-        <div className="card p-6 flex flex-col justify-between border-teal/30">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                Career Health
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-teal/10 border border-teal/20 text-teal">
+                {completedCount} / {planTasks.length} completed
               </span>
-              <Award size={18} className="text-teal" />
             </div>
-            <div className="text-center py-4">
-              <div className="inline-flex items-center justify-center w-24 h-24 rounded-full border-4 border-teal text-3xl font-extrabold text-heading shadow-glow-teal">
-                {careerHealthScore}%
-              </div>
-              <p className="text-xs font-semibold text-teal mt-3">
-                {careerHealthScore >= 70 ? 'High Placement Readiness' : careerHealthScore >= 40 ? 'Moderate Readiness' : 'Getting Started'}
+
+            <div className="space-y-2.5">
+              {planTasks.map((task) => {
+                const done = !!completedTasks[task.id]
+                return (
+                  <div
+                    key={task.id}
+                    className={
+                      'p-3.5 rounded-xl border transition flex items-center justify-between gap-4 ' +
+                      (done
+                        ? 'bg-base-950/40 border-white/5 opacity-60'
+                        : 'bg-base-850/80 border-white/10 hover:border-white/20')
+                    }
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <button
+                        onClick={() => toggleTaskCompleted(task.id)}
+                        className="mt-0.5 text-gray-400 hover:text-teal transition shrink-0"
+                        title={done ? 'Mark as incomplete' : 'Mark as completed'}
+                      >
+                        {done ? <CheckSquare size={18} className="text-teal" /> : <Square size={18} />}
+                      </button>
+                      <div className="min-w-0">
+                        <p className={'text-xs font-semibold ' + (done ? 'line-through text-gray-500' : 'text-heading')}>
+                          {task.title}
+                        </p>
+                        <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-2">
+                          <span className="text-gray-300 font-medium">{task.category}</span>
+                          <span>·</span>
+                          <span>{task.estTime}</span>
+                          <span>·</span>
+                          <span className="text-gray-400">{task.priority}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => navigate(task.route)}
+                      className="btn-ghost text-xs px-3 py-1.5 border border-white/10 hover:border-white/20 text-gray-300 shrink-0 flex items-center gap-1"
+                    >
+                      {task.btnText} <ArrowRight size={13} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 3. NEXT BEST ACTION */}
+          {nextStepTask && (
+            <div className="p-5 rounded-2xl border border-accent/20 bg-gradient-to-r from-accent/10 via-base-900 to-base-900">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-accent-light mb-1">
+                YOUR NEXT STEP
               </p>
-              <div className="mt-3 space-y-1 text-[11px] text-left text-gray-400 bg-base-900/60 p-3 rounded-xl border border-white/5">
-                <div className="flex justify-between">
-                  <span>Target Role Setup:</span>
-                  <span className="text-heading font-medium">{profilePoints}/25 pts</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Resume ATS Audit:</span>
-                  <span className={resumeAudit ? 'text-teal font-medium' : 'text-danger font-medium'}>
-                    {resumePoints}/30 pts
+              <h3 className="text-base font-bold text-heading">{nextStepTask.title}</h3>
+              <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                <strong className="text-gray-300 font-medium">Why:</strong> {nextStepTask.reason}
+              </p>
+
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={() => navigate(nextStepTask.route)}
+                  className="btn-primary text-xs !py-2 !px-4 flex items-center gap-1.5"
+                >
+                  {nextStepTask.ctaText || 'Start Practice'} <ArrowRight size={14} />
+                </button>
+                <span className="text-xs text-gray-500">
+                  {nextStepTask.estTime} · {nextStepTask.priority}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 5. TARGET ROLE & SKILL MATCH */}
+          <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  TARGET ROLE SKILLS
+                </h2>
+                <p className="text-sm font-semibold text-heading mt-0.5">{targetRole}</p>
+              </div>
+              <button
+                onClick={() => navigate('/roadmap')}
+                className="text-xs text-accent-light hover:underline flex items-center gap-1"
+              >
+                View Career Roadmap <ChevronRight size={14} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {roleSkillBreakdown.map((item) => (
+                <div key={item.name} className="p-3 rounded-xl border border-white/5 bg-base-950/60">
+                  <p className="text-xs font-medium text-heading">{item.name}</p>
+                  <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium border ${item.color}`}>
+                    {item.status}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>DSA Solved Progress:</span>
-                  <span className="text-heading font-medium">{dsaPoints}/25 pts</span>
+              ))}
+            </div>
+          </div>
+
+          {/* 6. SKILL GAPS */}
+          <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  SKILL GAPS
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">3 key skills need attention for your goal</p>
+              </div>
+              <button
+                onClick={() => navigate('/skills')}
+                className="text-xs text-accent-light hover:underline flex items-center gap-1"
+              >
+                All Skills <ChevronRight size={14} />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {skillGapsList.map((gap) => (
+                <div
+                  key={gap.title}
+                  className="p-3.5 rounded-xl border border-white/5 bg-base-950/60 flex items-center justify-between gap-4"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-heading">{gap.title}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      <span className="text-orange font-medium">{gap.priority}</span> · {gap.note}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate(gap.route)}
+                    className="btn-ghost text-xs px-3 py-1.5 border border-white/10 hover:border-white/20 text-gray-300 shrink-0"
+                  >
+                    {gap.action} →
+                  </button>
                 </div>
-                <div className="flex justify-between">
-                  <span>Aptitude Assessment:</span>
-                  <span className="text-heading font-medium">{aptitudePoints}/20 pts</span>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Column: Career Readiness & Widgets */}
+        <div className="space-y-6">
+
+          {/* 4. CAREER READINESS */}
+          <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                CAREER READINESS
+              </h2>
+            </div>
+
+            <div className="flex items-baseline gap-2 my-2">
+              <span className="text-3xl font-extrabold text-heading">{careerHealthScore}</span>
+              <span className="text-xs text-gray-400">/ 100</span>
+              <span className="text-xs font-medium text-teal ml-auto">{readinessLabel}</span>
+            </div>
+
+            <div className="h-2 rounded-full bg-base-950 overflow-hidden mb-4 border border-white/5">
+              <div
+                className="h-full bg-gradient-to-r from-purple-500 to-teal rounded-full transition-all duration-500"
+                style={{ width: `${careerHealthScore}%` }}
+              />
+            </div>
+
+            {careerHealthScore === 0 ? (
+              <div className="p-3.5 rounded-xl bg-base-950 border border-white/5 text-xs space-y-3">
+                <p className="text-gray-300 leading-relaxed">
+                  You're just getting started. Complete your profile and upload your resume to begin building your readiness score.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    onClick={() => setShowSetupModal(true)}
+                    className="btn-teal text-xs !py-1.5 !px-3 font-semibold"
+                  >
+                    Complete Profile
+                  </button>
+                  <button
+                    onClick={() => navigate('/resume')}
+                    className="btn-ghost text-xs !py-1.5 !px-3 border border-white/10 text-gray-300 hover:text-white"
+                  >
+                    Upload Resume
+                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Score Breakdown */}
+                <div className="space-y-2 pt-2 border-t border-white/5 text-xs">
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-gray-400">Profile / Target Role</span>
+                    <span className="font-semibold text-heading">{profilePoints} / 25</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-gray-400">Resume ATS Audit</span>
+                    <span className={resumeAudit ? 'font-semibold text-teal' : 'text-gray-500 font-medium'}>
+                      {resumePoints} / 30
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-gray-400">DSA Practice ({solvedCount} solved)</span>
+                    <span className="font-semibold text-heading">{dsaPoints} / 25</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-gray-400">Aptitude Assessment</span>
+                    <span className="font-semibold text-heading">{aptitudePoints} / 20</span>
+                  </div>
+                </div>
+
+                {/* Biggest Opportunity */}
+                <div className="mt-4 p-3 rounded-xl bg-base-950 border border-white/5 text-xs">
+                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                    BIGGEST OPPORTUNITY
+                  </p>
+                  <p className="font-semibold text-heading mt-0.5">
+                    {!resumeAudit ? 'Upload Resume (+30 pts)' : 'Improve DSA + System Design (+25 pts)'}
+                  </p>
+                  <button
+                    onClick={() => navigate(!resumeAudit ? '/resume' : '/dsa')}
+                    className="btn-teal w-full text-xs !py-1.5 mt-2.5 font-semibold"
+                  >
+                    Improve readiness →
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
-          <button
-            onClick={() => navigate('/analytics')}
-            className="btn-teal w-full text-xs font-semibold !py-2.5 mt-2"
-          >
-            View Full Analytics
-          </button>
+          {/* 7. JOB SEARCH WIDGET */}
+          <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  JOB APPLICATION TRACKER
+                </h2>
+              </div>
+              <button
+                onClick={() => navigate('/applications')}
+                className="text-xs text-accent-light hover:underline flex items-center gap-1"
+              >
+                View all <ChevronRight size={14} />
+              </button>
+            </div>
+
+            {applications.length > 0 ? (
+              <div className="space-y-2">
+                {applications.slice(0, 3).map((app) => (
+                  <div key={app.id} className="p-3 rounded-xl border border-white/5 bg-base-950/60 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-heading">{app.company}</p>
+                      <p className="text-[11px] text-gray-400">{app.role}</p>
+                    </div>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-blue/10 border border-blue/20 text-blue">
+                      {app.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 px-4 border border-dashed border-white/10 rounded-xl bg-base-950/40">
+                <FolderKanban size={24} className="mx-auto text-gray-600 mb-2" />
+                <p className="text-xs font-medium text-gray-300">No applications tracked yet</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">Keep track of your job search progress</p>
+                <button
+                  onClick={() => navigate('/applications')}
+                  className="btn-ghost text-xs px-3 py-1.5 mt-3 border border-white/10 text-gray-300"
+                >
+                  Start Tracking Jobs →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 10. CONTINUE LEARNING */}
+          <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                CONTINUE LEARNING
+              </h2>
+              <BookOpen size={16} className="text-gray-500" />
+            </div>
+
+            {activeLearning ? (
+              <div className="p-3.5 rounded-xl border border-white/5 bg-base-950/60 space-y-2">
+                <p className="text-xs font-semibold text-heading">{activeLearning.title}</p>
+                <p className="text-[11px] text-gray-400">{activeLearning.subtitle || activeLearning.lessonInfo || 'In Progress'}</p>
+                <div className="h-1.5 rounded-full bg-base-900 overflow-hidden">
+                  <div
+                    className="h-full bg-purple-500 rounded-full transition-all"
+                    style={{ width: `${activeLearning.progressPct || 0}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-gray-500">{activeLearning.progressPct || 0}% completed</span>
+                  <button
+                    onClick={() => navigate('/learning')}
+                    className="text-xs text-accent-light font-medium hover:underline"
+                  >
+                    Continue →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl border border-dashed border-white/10 bg-base-950/40 text-center py-5">
+                <p className="text-xs font-medium text-gray-300">No active learning paths</p>
+                <p className="text-[11px] text-gray-500 mt-1">Explore curated materials to build your skills</p>
+                <button
+                  onClick={() => navigate('/learning')}
+                  className="btn-ghost text-xs px-3 py-1.5 mt-3 border border-white/10 text-gray-300"
+                >
+                  Explore Learning →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 9. UPCOMING DEADLINES */}
+          <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                UPCOMING
+              </h2>
+              <Calendar size={16} className="text-gray-500" />
+            </div>
+
+            {upcomingEvents && upcomingEvents.length > 0 ? (
+              <div className="space-y-2 text-xs">
+                {upcomingEvents.map((evt, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl border border-white/5 bg-base-950/60 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-heading">{evt.title}</p>
+                      <p className="text-[10px] text-gray-500">{evt.subtitle || evt.type}</p>
+                    </div>
+                    <span className="text-[10px] font-semibold text-teal bg-teal/10 px-2 py-0.5 rounded border border-teal/20">
+                      {evt.date || evt.status || 'Upcoming'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl border border-dashed border-white/10 bg-base-950/40 text-center py-5">
+                <p className="text-xs font-medium text-gray-300">No upcoming events</p>
+                <p className="text-[11px] text-gray-500 mt-1">Schedule a mock interview to practice</p>
+                <button
+                  onClick={() => navigate('/interview')}
+                  className="btn-ghost text-xs px-3 py-1.5 mt-3 border border-white/10 text-gray-300"
+                >
+                  Schedule Interview →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 12. RECENT ACTIVITY */}
+          {recentActivities.length > 0 && (
+            <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
+                RECENT ACTIVITY
+              </h2>
+              <div className="space-y-2 text-xs">
+                {recentActivities.map((act, i) => (
+                  <div
+                    key={i}
+                    onClick={() => navigate(act.route)}
+                    className="p-2.5 rounded-xl border border-white/5 bg-base-950/40 hover:bg-base-950 transition cursor-pointer flex items-center justify-between"
+                  >
+                    <span className="text-gray-300 font-medium">✓ {act.title}</span>
+                    <span className="text-[10px] text-gray-500">{act.time}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
-      {/* Market Trends Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue/20">
-              <LineIcon size={18} className="text-blue" />
-            </div>
-            <h3 className="font-semibold text-heading">Tech Market Trends</h3>
+      {/* 13. MARKET TRENDS (Positioned lower on dashboard) */}
+      <div className="p-5 rounded-2xl border border-white/10 bg-base-900/90 mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue/15 text-blue">
+            <LineIcon size={16} />
           </div>
-          {loading ? (
-            <Skeleton className="h-64" />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : (
-            <MarketTrends data={trends} />
-          )}
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-teal/20">
-              <HeartPulse size={18} className="text-teal" />
-            </div>
-            <h3 className="font-semibold text-heading">Career Health Score</h3>
+          <div>
+            <h3 className="font-semibold text-heading text-sm">Tech Market Trends</h3>
+            <p className="text-xs text-gray-500">Industry hiring demand and average salary benchmark</p>
           </div>
-          {loading ? (
-            <Skeleton className="h-64" />
-          ) : (
-            <CareerHealth score={careerHealthScore} />
-          )}
         </div>
+        {loading ? (
+          <Skeleton className="h-48" />
+        ) : error ? (
+          <ErrorState message={error} />
+        ) : (
+          <MarketTrends data={trends} />
+        )}
       </div>
 
-      {/* First Time User Onboarding / Setup Modal */}
+      {/* First Time User Setup Modal */}
       <Modal
         open={showSetupModal}
         onClose={() => setShowSetupModal(false)}
-        title="✨ Welcome! Set Up Your Career Profile"
+        title="Set Up Your Career Profile"
       >
         <form onSubmit={handleSaveSetup} className="space-y-4">
           <p className="text-xs text-gray-400 leading-relaxed">
-            Please enter your target role and academic details so CareerAI can personalize your AI roadmap and calculate your Career Health.
+            Specify your target role and academic details so CareerAI can calculate your Career Health.
           </p>
 
           <div>
@@ -531,7 +958,7 @@ export default function Dashboard() {
                     className={
                       'px-2.5 py-1 rounded-lg text-[11px] font-semibold transition border flex items-center gap-1 ' +
                       (active
-                        ? 'bg-gradient-purple text-white border-transparent shadow-glow-purple'
+                        ? 'bg-gradient-purple text-white border-transparent'
                         : 'bg-base-900 text-gray-400 border-white/10 hover:border-white/20')
                     }
                   >
@@ -555,7 +982,7 @@ export default function Dashboard() {
               type="submit"
               className="btn-teal text-xs font-semibold px-5 py-2 flex items-center gap-1.5"
             >
-              <Sparkles size={14} /> Save & Calculate Career Health
+              <Sparkles size={14} /> Save Goal
             </button>
           </div>
         </form>
@@ -563,4 +990,5 @@ export default function Dashboard() {
     </AppShell>
   )
 }
+
 

@@ -47,7 +47,7 @@ export default function Settings() {
           <div className="flex items-center justify-between pt-2">
             <div>
               <p className="text-xs font-medium text-heading">AI Model Status</p>
-              <p className="text-[11px] text-teal font-medium">Google Gemini API (`gemini-2.5-flash`) Active</p>
+              <p className="text-[11px] text-teal font-medium">Google Gemini API (`gemini-3.6-flash`) Active</p>
             </div>
             <span className="badge bg-teal/20 text-teal text-xs font-bold">Enabled ✓</span>
           </div>

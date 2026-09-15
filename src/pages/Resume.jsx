@@ -27,6 +27,8 @@ import { Skeleton, ErrorState } from '../components/Feedback'
 import { analyzeResume, SAMPLE_RESUME_TEXT } from '../api/resume'
 import { listResumes, saveResume, deleteResume } from '../api/resumes'
 import { SAMPLE_JOBS, computeSkillMatch } from '../api/jobs'
+import { addApplication } from '../api/applications'
+import { useAuth } from '../context/AuthContext'
 
 function ResultSkeleton() {
   return (
@@ -42,8 +44,20 @@ function ResultSkeleton() {
 }
 
 export default function Resume() {
+  const { profile } = useAuth()
   const [tab, setTab] = useState('upload') // 'upload' | 'text'
-  const [targetRole, setTargetRole] = useState('Full Stack Engineer')
+  const [targetRole, setTargetRole] = useState(() => {
+    try {
+      const raw = localStorage.getItem('careeriq_onboarding')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.targetRole) return parsed.targetRole
+      }
+    } catch {
+      /* ignore */
+    }
+    return profile?.target_role || 'Full Stack Engineer'
+  })
   const [file, setFile] = useState(null)
   const [rawText, setRawText] = useState('')
   const [loading, setLoading] = useState(false)
@@ -132,7 +146,18 @@ export default function Resume() {
     }
   }
 
-  const handleApplyJob = (job) => {
+  const handleApplyJob = async (job) => {
+    try {
+      await addApplication({
+        company: job.company,
+        role: job.title,
+        location: job.location,
+        status: 'Applied',
+        applied_at: new Date().toISOString().split('T')[0],
+      })
+    } catch {
+      /* non-fatal */
+    }
     setAppliedJobs((prev) => [...prev, job.id])
     setApplyModalJob(null)
   }
@@ -155,7 +180,7 @@ export default function Resume() {
       <PageHeader
         icon={FileText}
         title="ATS Resume Scanner & Audit"
-        subtitle="Upload or paste your resume to discover what is missing, what is lacking, and match open tech jobs"
+        subtitle="Analyze your resume against your target role and get actionable improvements."
         actions={
           <button
             type="button"
@@ -271,7 +296,7 @@ export default function Resume() {
             className="btn-primary text-xs px-6 py-2.5 font-semibold flex items-center gap-2"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            Run Full ATS Audit (Google Gemini 2.5)
+            Run ATS Resume Audit
           </button>
         </form>
       </div>
