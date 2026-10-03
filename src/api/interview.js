@@ -154,7 +154,7 @@ async function invokeGeminiInterview(action, payload) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('No Gemini API key')
 
-  const models = ['gemini-3.6-flash']
+  const models = ['gemini-3.8-flash', 'gemini-3.6-flash']
 
   const call = async (prompt, systemInstruction = '') => {
     let lastErr = null

@@ -279,6 +279,8 @@ export default function InterviewAI() {
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [questionIndex, setQuestionIndex] = useState(1)
   const [answerText, setAnswerText] = useState('')
+  const [interimText, setInterimText] = useState('')
+  const [micAudioLevel, setMicAudioLevel] = useState(0)
   const [scratchpad, setScratchpad] = useState('')
   const [aiState, setAiState] = useState('idle') // 'speaking' | 'listening' | 'thinking' | 'idle'
   const [nonVerbalCue, setNonVerbalCue] = useState('')
@@ -306,6 +308,9 @@ export default function InterviewAI() {
   const streamRef = useRef(null)
   const audioCtxRef = useRef(null)
   const analyserRef = useRef(null)
+  const audioLevelAnimRef = useRef(null)
+  const currentUtteranceRef = useRef(null)
+  const ttsResumeIntervalRef = useRef(null)
   const questionStartRef = useRef(Date.now())
   const totalStartRef = useRef(Date.now())
   const recognitionRef = useRef(null)
@@ -313,11 +318,28 @@ export default function InterviewAI() {
   const transcriptFeedRef = useRef(null)
   const activeQuestionRef = useRef('')
   const answerTextRef = useRef('')
+  const interimTextRef = useRef('')
   const isSpeakingRef = useRef(false)
 
-  // Sync refs for async recognition callbacks
+  // Sync refs for async recognition & interval callbacks
   activeQuestionRef.current = currentQuestion
   answerTextRef.current = answerText
+  interimTextRef.current = interimText
+
+  // Pre-load synthesis voices
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      const load = () => {
+        try {
+          window.speechSynthesis.getVoices()
+        } catch {
+          // ignore
+        }
+      }
+      load()
+      window.speechSynthesis.onvoiceschanged = load
+    }
+  }, [])
 
   const {
     register,
@@ -338,12 +360,25 @@ export default function InterviewAI() {
   const speak = useCallback(
     (text, onComplete) => {
       if (!ttsOn || !text || typeof window === 'undefined' || !window.speechSynthesis) {
+        isSpeakingRef.current = false
+        setAiState('listening')
         onComplete?.()
         return
       }
 
-      window.speechSynthesis.cancel()
+      if (ttsResumeIntervalRef.current) {
+        clearInterval(ttsResumeIntervalRef.current)
+        ttsResumeIntervalRef.current = null
+      }
+
+      try {
+        window.speechSynthesis.cancel()
+      } catch {
+        // ignore
+      }
+
       const utterance = new SpeechSynthesisUtterance(text)
+      currentUtteranceRef.current = utterance
       const voices = window.speechSynthesis.getVoices()
 
       // Look for pleasant, natural English voice match
@@ -357,12 +392,14 @@ export default function InterviewAI() {
               v.name.includes('Samantha') ||
               v.name.includes('Jenny') ||
               v.name.includes('Natural') ||
-              v.name.includes('Google US English'))) ||
+              v.name.includes('Google US English') ||
+              v.name.includes('Google UK English Female'))) ||
             (p.gender === 'male' &&
               (v.name.includes('Male') ||
                 v.name.includes('David') ||
                 v.name.includes('Alex') ||
                 v.name.includes('Guy') ||
+                v.name.includes('Google UK English Male') ||
                 v.name.includes('Christopher'))))
       )
       if (!preferred) {
@@ -370,37 +407,78 @@ export default function InterviewAI() {
       }
       if (preferred) utterance.voice = preferred
 
-      utterance.rate = p.voiceRate || 1.0
+      utterance.rate = p.voiceRate || 1.02
       utterance.pitch = p.voicePitch || 1.0
+
+      let done = false
+      const finalize = () => {
+        if (done) return
+        done = true
+        if (ttsResumeIntervalRef.current) {
+          clearInterval(ttsResumeIntervalRef.current)
+          ttsResumeIntervalRef.current = null
+        }
+        currentUtteranceRef.current = null
+        isSpeakingRef.current = false
+        setAiState('listening')
+        onComplete?.()
+      }
 
       utterance.onstart = () => {
         isSpeakingRef.current = true
         setAiState('speaking')
+        // Chromium 14-second audio pause bug workaround
+        ttsResumeIntervalRef.current = setInterval(() => {
+          if (window.speechSynthesis?.speaking && !window.speechSynthesis?.paused) {
+            window.speechSynthesis.pause()
+            window.speechSynthesis.resume()
+          }
+        }, 3500)
       }
 
-      utterance.onend = () => {
-        isSpeakingRef.current = false
-        setAiState('listening')
-        onComplete?.()
-      }
+      utterance.onend = finalize
+      utterance.onerror = finalize
 
-      utterance.onerror = () => {
-        isSpeakingRef.current = false
-        setAiState('listening')
-        onComplete?.()
-      }
+      // Safety timer based on text length to prevent indefinite freeze if onend is dropped
+      const wordsCount = text.split(/\s+/).filter(Boolean).length
+      const maxDurationMs = Math.max(5000, (wordsCount / 2.2) * 1000 + 4000)
+      setTimeout(() => {
+        if (isSpeakingRef.current && currentUtteranceRef.current === utterance) {
+          finalize()
+        }
+      }, maxDurationMs)
 
-      window.speechSynthesis.speak(utterance)
+      try {
+        window.speechSynthesis.speak(utterance)
+      } catch {
+        finalize()
+      }
     },
     [ttsOn, selectedPersona]
   )
+
+  const handleSkipSpeech = () => {
+    if (ttsResumeIntervalRef.current) {
+      clearInterval(ttsResumeIntervalRef.current)
+      ttsResumeIntervalRef.current = null
+    }
+    try {
+      window.speechSynthesis?.cancel()
+    } catch {
+      // ignore
+    }
+    currentUtteranceRef.current = null
+    isSpeakingRef.current = false
+    setAiState('listening')
+    if (handsFree) startListening()
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                     SPEECH RECOGNITION & HANDS-FREE                        */
   /* -------------------------------------------------------------------------- */
 
   const startListening = useCallback(() => {
-    if (!SpeechRecognitionClass || micMuted) return
+    if (!SpeechRecognitionClass || micMuted || isSpeakingRef.current) return
     try {
       if (recognitionRef.current) {
         try {
@@ -408,58 +486,75 @@ export default function InterviewAI() {
         } catch {
           // ignore
         }
+        recognitionRef.current = null
       }
 
       const rec = new SpeechRecognitionClass()
       rec.continuous = true
       rec.interimResults = true
       rec.lang = 'en-US'
+      rec.maxAlternatives = 1
 
       rec.onresult = (e) => {
         let finalStr = ''
         let interimStr = ''
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const res = e.results[i]
-          if (res.isFinal) finalStr += res[0].transcript
-          else interimStr += res[0].transcript
+          if (res.isFinal) {
+            finalStr += res[0].transcript
+          } else {
+            interimStr += res[0].transcript
+          }
         }
 
         if (finalStr.trim()) {
-          setAnswerText((prev) => (prev ? `${prev} ${finalStr.trim()}` : finalStr.trim()))
+          setAnswerText((prev) => {
+            const updated = prev ? `${prev} ${finalStr.trim()}` : finalStr.trim()
+            answerTextRef.current = updated
+            return updated
+          })
         }
 
-        // Trigger Hands-Free Silence Detection if speech detected
-        if (handsFree && (answerTextRef.current.length > 20 || finalStr.length > 10)) {
+        setInterimText(interimStr)
+        interimTextRef.current = interimStr
+
+        // Trigger or reset Hands-Free Turn-taking countdown
+        const totalLen = ((answerTextRef.current || '') + ' ' + (interimStr || '')).trim().length
+        if (handsFree && totalLen > 3) {
           resetSilenceCountdown()
         }
       }
 
       rec.onerror = (e) => {
         if (e.error === 'not-allowed') {
-          setError('Microphone access blocked. Please enable mic permissions.')
+          setError('Microphone access blocked. Please enable mic permissions in your browser address bar.')
         }
+        // 'no-speech' or 'aborted' are standard lifecycle events
       }
 
       rec.onend = () => {
-        // Automatically restart recognition if session is live and AI isn't speaking
+        // Automatically re-listen if candidate is still speaking, mic isn't muted, and session is live
         if (started && !ended && !isSpeakingRef.current && !micMuted) {
-          try {
-            rec.start()
-          } catch {
-            // ignore
-          }
+          setTimeout(() => {
+            if (!isSpeakingRef.current && !micMuted && started && !ended) {
+              startListening()
+            }
+          }, 200)
         }
       }
 
       rec.start()
       recognitionRef.current = rec
-    } catch {
-      // Speech recognition start error
+    } catch (err) {
+      console.warn('Speech recognition start failed:', err)
     }
   }, [handsFree, micMuted, started, ended])
 
   const stopListening = useCallback(() => {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+    if (silenceTimerRef.current) {
+      clearInterval(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
     setSilenceCountdown(null)
     try {
       recognitionRef.current?.abort()
@@ -469,9 +564,12 @@ export default function InterviewAI() {
     recognitionRef.current = null
   }, [])
 
-  // Auto-submit countdown trigger
+  // Auto-submit countdown trigger when candidate stops speaking
   const resetSilenceCountdown = useCallback(() => {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+    if (silenceTimerRef.current) {
+      clearInterval(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
     setSilenceCountdown(3)
 
     let remaining = 3
@@ -481,13 +579,20 @@ export default function InterviewAI() {
         setSilenceCountdown(remaining)
       } else {
         clearInterval(interval)
+        silenceTimerRef.current = null
         setSilenceCountdown(null)
-        // Automatically submit candidate's answer if enough content exists
-        if (answerTextRef.current.trim().split(/\s+/).length >= 4) {
-          handleAutoSubmit()
+
+        const fullSpoken = (
+          (answerTextRef.current || '') +
+          ' ' +
+          (interimTextRef.current || '')
+        ).trim()
+
+        if (fullSpoken.split(/\s+/).filter(Boolean).length >= 3) {
+          handleAutoSubmit(fullSpoken)
         }
       }
-    }, 900)
+    }, 1000)
 
     silenceTimerRef.current = interval
   }, [])
@@ -509,15 +614,34 @@ export default function InterviewAI() {
       }
       // Audio level analyser
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)()
-        const src = ctx.createMediaStreamSource(stream)
-        const analyser = ctx.createAnalyser()
-        analyser.fftSize = 256
-        src.connect(analyser)
-        audioCtxRef.current = ctx
-        analyserRef.current = analyser
-      } catch {
-        // optional analyser
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext
+        if (AudioContextClass) {
+          const ctx = new AudioContextClass()
+          const src = ctx.createMediaStreamSource(stream)
+          const analyser = ctx.createAnalyser()
+          analyser.fftSize = 256
+          analyser.smoothingTimeConstant = 0.4
+          src.connect(analyser)
+          audioCtxRef.current = ctx
+          analyserRef.current = analyser
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount)
+          const checkVolume = () => {
+            if (!analyserRef.current) return
+            analyserRef.current.getByteFrequencyData(dataArray)
+            let sum = 0
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i]
+            }
+            const avg = sum / dataArray.length
+            const level = Math.min(100, Math.round((avg / 128) * 100))
+            setMicAudioLevel(level)
+            audioLevelAnimRef.current = requestAnimationFrame(checkVolume)
+          }
+          checkVolume()
+        }
+      } catch (err) {
+        console.warn('AudioContext analyser setup:', err)
       }
     } catch {
       setCamEnabled(false)
@@ -525,6 +649,11 @@ export default function InterviewAI() {
   }
 
   const stopMedia = () => {
+    if (audioLevelAnimRef.current) {
+      cancelAnimationFrame(audioLevelAnimRef.current)
+      audioLevelAnimRef.current = null
+    }
+    setMicAudioLevel(0)
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     audioCtxRef.current?.close().catch(() => {})
@@ -577,7 +706,7 @@ export default function InterviewAI() {
 
       await initWebcam()
 
-      // Speak initial opening question
+      // Speak initial opening question aloud to candidate
       speak(q || 'Tell me about yourself and your background.', () => {
         setAiState('listening')
         if (handsFree) startListening()
@@ -588,17 +717,31 @@ export default function InterviewAI() {
     }
   }
 
-  const handleNextTurn = async () => {
-    if (!answerText.trim() && !scratchpad.trim()) return
+  const handleNextTurn = async (overrideAnswer) => {
+    const rawAnswer = overrideAnswer !== undefined ? overrideAnswer : answerTextRef.current || answerText
+    const currentAns = (
+      (rawAnswer || '') +
+      ' ' +
+      (interimTextRef.current || '')
+    ).trim()
+    const currentPad = scratchpad.trim()
+
+    if (!currentAns && !currentPad) return
+    if (answering) return
+
     setAnswering(true)
     setAiState('thinking')
     stopListening()
+    setInterimText('')
+    interimTextRef.current = ''
+    if (silenceTimerRef.current) {
+      clearInterval(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
+    setSilenceCountdown(null)
 
     const currentQ = currentQuestion
-    const currentAns = answerText
-    const currentPad = scratchpad
-
-    const words = currentAns.trim() ? currentAns.trim().split(/\s+/).length : 0
+    const words = currentAns ? currentAns.split(/\s+/).filter(Boolean).length : 0
     const seconds = Math.max(1, Math.round((Date.now() - questionStartRef.current) / 1000))
     const wpm = Math.round((words / seconds) * 60)
     const fillers = countFillers(currentAns)
@@ -615,7 +758,7 @@ export default function InterviewAI() {
       })
 
       const data = res.data || {}
-      const aiResp = data.aiResponse || 'Thank you for your detailed answer.'
+      const aiResp = data.aiResponse || 'Thank you for your response.'
       const fb = data.feedback || ''
       const rating = data.rating || 'Good'
       const nextQ = data.nextQuestion || ''
@@ -638,6 +781,7 @@ export default function InterviewAI() {
 
       setFeedbackHistory((prev) => [...prev, historyItem])
       setAnswerText('')
+      answerTextRef.current = ''
       setScratchpad('')
       setActiveHint('')
       setElapsed(0)
@@ -651,7 +795,7 @@ export default function InterviewAI() {
         setCurrentQuestion(nextQ)
         setAiState('speaking')
 
-        // Live spoken conversation: AI responds directly to your answer, then delivers next question
+        // Conversational live dialogue: interviewer reacts directly to your answer, then introduces follow-up question
         const spokenPayload = `${aiResp} Now, let's explore this: ${nextQ}`
         speak(spokenPayload, () => {
           setAiState('listening')
@@ -661,14 +805,15 @@ export default function InterviewAI() {
     } catch (e) {
       setError(e.userMessage || 'Failed to analyze answer')
       setAiState('listening')
+      if (handsFree) startListening()
     } finally {
       setAnswering(false)
     }
   }
 
-  const handleAutoSubmit = () => {
-    if (!answering && answerTextRef.current.trim()) {
-      handleNextTurn()
+  const handleAutoSubmit = (spoken) => {
+    if (!answering) {
+      handleNextTurn(spoken)
     }
   }
 
@@ -699,6 +844,7 @@ export default function InterviewAI() {
 
   const handleRepeatQuestion = () => {
     if (!currentQuestion) return
+    stopListening()
     speak(currentQuestion, () => {
       setAiState('listening')
       if (handsFree) startListening()
@@ -707,7 +853,15 @@ export default function InterviewAI() {
 
   const handleEndSession = async () => {
     stopListening()
-    window.speechSynthesis?.cancel()
+    if (ttsResumeIntervalRef.current) {
+      clearInterval(ttsResumeIntervalRef.current)
+      ttsResumeIntervalRef.current = null
+    }
+    try {
+      window.speechSynthesis?.cancel()
+    } catch {
+      // ignore
+    }
     setAiState('thinking')
 
     try {
@@ -748,6 +902,7 @@ export default function InterviewAI() {
     setSummary(null)
     setFeedbackHistory([])
     setAnswerText('')
+    setInterimText('')
     setScratchpad('')
     setError('')
     setQuestionIndex(1)
@@ -759,22 +914,23 @@ export default function InterviewAI() {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
       if (e.code === 'Space' && started && !ended) {
         e.preventDefault()
-        if (aiState === 'listening' && answerText.trim()) {
+        if (aiState === 'listening' && (answerTextRef.current || interimTextRef.current)) {
           handleNextTurn()
         }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [started, ended, aiState, answerText])
+  }, [started, ended, aiState])
 
   /* -------------------------------------------------------------------------- */
   /*                            METRICS & CALCULATIONS                          */
   /* -------------------------------------------------------------------------- */
 
-  const liveWords = answerText.trim() ? answerText.trim().split(/\s+/).length : 0
+  const combinedSpoken = ((answerText || '') + ' ' + (interimText || '')).trim()
+  const liveWords = combinedSpoken ? combinedSpoken.split(/\s+/).filter(Boolean).length : 0
   const liveWpm = Math.round((liveWords / Math.max(1, elapsed)) * 60) || 0
-  const liveFillers = countFillers(answerText)
+  const liveFillers = countFillers(combinedSpoken)
   const paceSignal =
     liveWpm === 0 ? 'Ready' : liveWpm < 95 ? 'Deliberate' : liveWpm > 165 ? 'Fast' : 'Optimal'
 
@@ -1057,13 +1213,22 @@ export default function InterviewAI() {
                       <span className="text-[10px] text-gray-400">· {selectedPersona.company}</span>
                     </div>
 
-                    {/* AI State Badge */}
+                    {/* AI State Badge & Skip Controls */}
                     <div className="flex items-center gap-2">
                       {aiState === 'speaking' && (
-                        <span className="badge bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] animate-pulse flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                          Speaking aloud...
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="badge bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] animate-pulse flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                            Speaking aloud...
+                          </span>
+                          <button
+                            onClick={handleSkipSpeech}
+                            className="text-[10px] text-purple-200 bg-purple-600/30 hover:bg-purple-600/60 px-2 py-0.5 rounded-lg border border-purple-400/30 transition flex items-center gap-1"
+                            title="Interrupt speech and start speaking your answer"
+                          >
+                            Skip & Answer <ChevronRight size={10} />
+                          </button>
+                        </div>
                       )}
                       {aiState === 'listening' && (
                         <span className="badge bg-teal/20 text-teal border border-teal/30 text-[10px] flex items-center gap-1.5">
@@ -1170,34 +1335,71 @@ export default function InterviewAI() {
                     </div>
                   )}
 
-                  {/* Overlay Top Bar */}
-                  <div className="relative z-10 flex items-center justify-between">
+                  {/* Overlay Top Bar: Mic VU & Status */}
+                  <div className="relative z-10 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 bg-base-900/80 backdrop-blur-md px-3 py-1 rounded-xl border border-white/10">
                       <span className="text-xs font-semibold text-gray-200">You (Candidate)</span>
-                      {micMuted && (
+                      {micMuted ? (
                         <span className="text-[10px] text-danger flex items-center gap-1">
                           <MicOff size={11} /> Muted
                         </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5 ml-1">
+                          <Mic size={11} className={micAudioLevel > 15 ? 'text-teal animate-pulse' : 'text-gray-400'} />
+                          <div className="flex items-end gap-0.5 h-3 w-10">
+                            {[0.2, 0.4, 0.6, 0.8, 1.0].map((step, idx) => (
+                              <div
+                                key={idx}
+                                className={`w-1.5 rounded-sm transition-all duration-75 ${
+                                  micAudioLevel / 100 >= step ? 'bg-teal h-full' : 'bg-white/15 h-1'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
 
-                    {/* Silence Auto-submit Countdown */}
-                    {silenceCountdown !== null && (
+                    {/* Silence Auto-submit Countdown & Status */}
+                    {silenceCountdown !== null ? (
                       <div className="badge bg-teal/20 text-teal border border-teal/30 text-[11px] animate-pulse flex items-center gap-1">
                         <Zap size={11} />
-                        Auto-submitting in {silenceCountdown}s...
+                        Auto-responding in {silenceCountdown}s...
                       </div>
-                    )}
+                    ) : aiState === 'listening' ? (
+                      <div className="badge bg-teal/10 text-teal border border-teal/20 text-[10px] flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal animate-ping" />
+                        Listening now
+                      </div>
+                    ) : null}
                   </div>
 
-                  {/* Overlay Center: Speech Teleprompter Subtitles */}
-                  <div className="relative z-10 my-auto">
-                    {answerText && showCaptions && (
-                      <div className="live-cc-backdrop rounded-xl p-3 border border-white/10 max-h-24 overflow-y-auto">
-                        <p className="text-xs text-gray-200 italic leading-relaxed">
-                          “{answerText}”
+                  {/* Overlay Center: Real-time Teleprompter Subtitles & Quick Submit Button */}
+                  <div className="relative z-10 my-auto flex flex-col items-center gap-2">
+                    {(answerText || interimText) && showCaptions && (
+                      <div className="live-cc-backdrop rounded-xl p-3 border border-white/10 max-h-28 overflow-y-auto w-full">
+                        <div className="flex items-center justify-between text-[10px] text-teal font-medium mb-1">
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-teal animate-pulse" />
+                            Transcribing your voice:
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-100 italic leading-relaxed">
+                          “{answerText}{' '}
+                          {interimText && <span className="text-teal-300 not-italic font-normal">{interimText}...</span>}”
                         </p>
                       </div>
+                    )}
+
+                    {/* Quick Respond Now Button inside candidate screen */}
+                    {aiState === 'listening' && (answerText || interimText).trim().length > 5 && (
+                      <button
+                        onClick={() => handleNextTurn()}
+                        disabled={answering}
+                        className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-base-950 font-bold text-xs py-1.5 px-4 rounded-xl shadow-lg shadow-teal-500/20 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+                      >
+                        <Send size={12} /> Done Speaking — Respond Now
+                      </button>
                     )}
                   </div>
 
@@ -1320,8 +1522,8 @@ export default function InterviewAI() {
                 {/* Right: Submit Answer Button */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={handleNextTurn}
-                    disabled={answering || (!answerText.trim() && !scratchpad.trim())}
+                    onClick={() => handleNextTurn()}
+                    disabled={answering || (!answerText.trim() && !interimText.trim() && !scratchpad.trim())}
                     className="btn-primary py-2.5 px-4 text-xs font-semibold flex items-center gap-2 shadow-glow-purple"
                   >
                     {answering ? (
@@ -1388,15 +1590,38 @@ export default function InterviewAI() {
 
                     {/* Active Answer Input area */}
                     <div className="mt-3">
-                      <label className="text-[10px] text-gray-400 block mb-1">
-                        Spoken or typed response:
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] text-gray-400">
+                          Spoken or typed response:
+                        </label>
+                        {interimText && (
+                          <span className="text-[10px] text-teal animate-pulse flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-teal animate-ping" />
+                            Hearing: {interimText}...
+                          </span>
+                        )}
+                      </div>
                       <textarea
                         className="input resize-none text-xs font-sans p-2.5 h-20"
-                        placeholder="Speak into mic or type your answer here..."
+                        placeholder="Speak into your microphone or type your answer here..."
                         value={answerText}
-                        onChange={(e) => setAnswerText(e.target.value)}
+                        onChange={(e) => {
+                          setAnswerText(e.target.value)
+                          answerTextRef.current = e.target.value
+                        }}
                       />
+                      {(answerText || interimText).trim() && (
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleNextTurn()}
+                            disabled={answering}
+                            className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-md shadow-accent/20"
+                          >
+                            <Send size={11} /> Submit & Hear AI Response
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
