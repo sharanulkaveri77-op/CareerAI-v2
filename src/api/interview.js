@@ -185,50 +185,101 @@ async function invokeGeminiInterview(action, payload) {
   }
 
   if (action === 'start') {
-    const { role = 'Software Engineer', type = 'Technical' } = payload
-    const prompt = `Generate a highly unique, specific, and realistic interview question for a ${type} interview for role "${role}".
-Ensure the question tests practical real-world scenario engineering skills.
-Return JSON object: { "sessionId": "${crypto.randomUUID()}", "question": "the question text" }`
-    return await call(prompt, 'You are a Senior Technical Hiring Manager. Return valid JSON.')
+    const { role = 'Software Engineer', type = 'Technical', persona = {} } = payload
+    const personaName = persona.name || 'Sarah Vance'
+    const personaTitle = persona.title || 'Principal Architect'
+    const prompt = `You are ${personaName}, ${personaTitle}. You are conducting a realistic live ${type} interview for the role: "${role}".
+Generate the opening interview question. It should be engaging, practical, realistic, and tailored to ${type} skills.
+Return JSON object:
+{
+  "sessionId": "${crypto.randomUUID()}",
+  "question": "Opening question text here"
+}`
+    return await call(prompt, `You are ${personaName}, an elite technical hiring interviewer. Return valid JSON.`)
+  }
+
+  if (action === 'hint') {
+    const { question, role = 'Software Engineer', type = 'Technical', persona = {} } = payload
+    const personaName = persona.name || 'Sarah Vance'
+    const prompt = `The candidate is in a live ${type} interview for "${role}".
+Current Question: "${question}"
+The candidate just clicked "Ask for Clarification / Hint".
+As ${personaName}, provide a realistic, conversational, 1-2 sentence clarification or hint to unblock them without spoon-feeding the entire solution.
+Return JSON object:
+{
+  "hint": "1-2 sentence encouraging and scoping hint or clarification"
+}`
+    return await call(prompt, `You are ${personaName}, an empathetic yet rigorous interviewer. Return valid JSON.`)
   }
 
   if (action === 'answer') {
-    const { question, answer, type = 'Technical', history = [], role = 'Software Engineer' } = payload
+    const {
+      question,
+      answer,
+      scratchpad = '',
+      type = 'Technical',
+      history = [],
+      role = 'Software Engineer',
+      persona = {},
+    } = payload
+    const personaName = persona.name || 'Sarah Vance'
     const previousQuestions = history.map((h) => h.question)
-    const prompt = `You are a real Senior Engineering Hiring Manager interviewing a candidate for the role "${role}".
-Current Question Asked: "${question}"
-Candidate's Spoken/Typed Answer: "${answer}"
 
-Your job is to respond naturally and interactively like a real human interviewer.
-1. Formulate "aiResponse": A 1-2 sentence conversational spoken response directly addressing what the candidate said (e.g., "That's an insightful point about handling microservice failures with circuit breakers...").
-2. Formulate "feedback": A 1-2 sentence constructive STAR coaching feedback tip evaluating their technical depth and clarity.
-3. Formulate "rating": Assess answer quality as one of: "Strong", "Good", or "Needs Depth".
-4. Formulate "nextQuestion": A contextual follow-up or next ${type} interview question building on their response. Do NOT repeat previous questions: [${previousQuestions.join(' | ')}].
+    const prompt = `You are ${personaName}, a Senior Hiring Manager conducting a live interactive ${type} interview for the role "${role}".
+Current Question Asked: "${question}"
+Candidate's Spoken Answer: "${answer}"
+${scratchpad ? `Candidate's Live Scratchpad / Code: \n"""\n${scratchpad}\n"""` : ''}
+
+Respond like a real human interviewer on a live video call:
+1. "aiResponse": 1-2 conversational sentences reacting directly to the candidate's specific points and code (e.g. "I like how you considered idempotency keys for the payment endpoint...").
+2. "feedback": 1-2 sentences of constructive STAR coaching evaluating technical precision, structure, or depth.
+3. "rating": One of "Strong", "Good", or "Needs Depth".
+4. "nextQuestion": A natural, progressive follow-up or next question building on what they said. Do NOT repeat: [${previousQuestions.join(' | ')}].
+5. "nonVerbalCue": A short 2-4 word interviewer observation (e.g., "Noted architectural trade-off", "Appreciated edge-case handling", "Looking for metric impact").
+6. "modelAnswerSnippet": A 1-2 sentence gold-standard reference point on what a top candidate would emphasize.
 
 Return JSON object:
 {
-  "aiResponse": "Conversational interviewer response directly engaging with candidate's specific answer details",
-  "feedback": "Constructive STAR coaching feedback tip",
+  "aiResponse": "Conversational interviewer reaction",
+  "feedback": "Constructive STAR coaching tip",
   "rating": "Strong",
-  "nextQuestion": "Contextual follow-up question text"
+  "nextQuestion": "Contextual follow-up question text",
+  "nonVerbalCue": "Noted distributed trade-off",
+  "modelAnswerSnippet": "A top response specifies 99.99% SLA requirements and uses distributed leases..."
 }`
-    return await call(prompt, 'You are an Expert Tech Interviewer & Coach. Return valid JSON.')
+    return await call(prompt, `You are ${personaName}, a real-time interviewer. Return valid JSON.`)
   }
 
   if (action === 'summary') {
-    const { history = [] } = payload
-    const transcript = history.map((h, i) => `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}\nAI Feedback: ${h.tip || h.feedback}`).join('\n\n')
-    const prompt = `Evaluate candidate's full interview performance transcript:
+    const { history = [], role = 'Software Engineer', type = 'Technical' } = payload
+    const transcript = history
+      .map(
+        (h, i) =>
+          `[Question ${i + 1}]: ${h.question}\n[Candidate Answer]: ${h.answer}\n[Candidate Code]: ${h.scratchpad || 'None'}\n[Feedback]: ${h.tip || h.feedback}\n[Rating]: ${h.rating}`
+      )
+      .join('\n\n')
+
+    const prompt = `Evaluate the candidate's complete performance in this ${type} interview for "${role}".
+Transcript:
 ${transcript || 'No answers provided'}
 
 Return JSON object:
 {
-  "score": 75,
-  "overall": "2-sentence overall evaluation summary",
-  "strengths": ["strength 1", "strength 2"],
-  "improvements": ["improvement 1", "improvement 2"]
+  "score": 82,
+  "technicalScore": 85,
+  "starScore": 80,
+  "communicationScore": 84,
+  "overall": "2-sentence executive hiring manager assessment",
+  "strengths": ["Clear systems intuition", "Good articulation of trade-offs"],
+  "improvements": ["Quantify business metrics using STAR", "Elaborate on edge cases and failure modes"],
+  "modelAnswers": [
+    {
+      "question": "Question text",
+      "modelAnswer": "Comprehensive example answer demonstrating staff-level depth."
+    }
+  ]
 }`
-    return await call(prompt, 'You are an Expert Tech Interviewer & Senior Hiring Manager. Return valid JSON.')
+    return await call(prompt, 'You are an Executive Hiring Committee Director. Return valid JSON.')
   }
 
   throw new Error('Unknown action')
@@ -256,11 +307,23 @@ export const startInterview = async (data) => {
   let body
   try {
     body = await invoke('start', data)
-    sessions.set(body.sessionId, { type: data?.type || 'Technical', role: data?.role || 'Software Engineer', index: 1, asked: [body.question] })
+    sessions.set(body.sessionId, {
+      type: data?.type || 'Technical',
+      role: data?.role || 'Software Engineer',
+      persona: data?.persona || null,
+      index: 1,
+      asked: [body.question],
+    })
   } catch {
     const sessionId = crypto.randomUUID()
     const firstQ = pickQuestion(data?.type || 'Technical', 0)
-    sessions.set(sessionId, { type: data?.type || 'Technical', role: data?.role || 'Software Engineer', index: 1, asked: [firstQ] })
+    sessions.set(sessionId, {
+      type: data?.type || 'Technical',
+      role: data?.role || 'Software Engineer',
+      persona: data?.persona || null,
+      index: 1,
+      asked: [firstQ],
+    })
     body = {
       sessionId,
       question: firstQ,
@@ -271,9 +334,20 @@ export const startInterview = async (data) => {
 }
 
 export const submitAnswer = async (data) => {
-  const state = sessions.get(data?.sessionId) || { type: 'Technical', role: 'Software Engineer', index: 0, asked: [] }
+  const state = sessions.get(data?.sessionId) || {
+    type: 'Technical',
+    role: 'Software Engineer',
+    persona: null,
+    index: 0,
+    asked: [],
+  }
   try {
-    const body = await invoke('answer', { ...data, role: state.role, history: state.asked.map((q) => ({ question: q })) })
+    const body = await invoke('answer', {
+      ...data,
+      role: state.role,
+      persona: state.persona,
+      history: state.asked.map((q) => ({ question: q })),
+    })
     if (body?.nextQuestion) {
       sessions.set(data?.sessionId, { ...state, asked: [...state.asked, body.nextQuestion] })
     }
@@ -281,15 +355,18 @@ export const submitAnswer = async (data) => {
   } catch {
     const words = (data?.answer || '').trim().split(/\s+/).filter(Boolean).length
     const rating = words >= 50 ? 'Strong' : words >= 25 ? 'Good' : 'Needs Depth'
-    const aiResponse = words >= 40
-      ? `Great explanation! You brought up key engineering details in your answer.`
-      : `Thanks for that summary. Let's delve a bit deeper into your implementation details.`
+    const aiResponse =
+      words >= 40
+        ? `Great explanation! You covered key architectural details in your answer.`
+        : `Thanks for that summary. Let's delve a bit deeper into your implementation details.`
     const nextQ = pickQuestion(state.type, state.index, state.asked)
     const result = {
       aiResponse,
       feedback: heuristicFeedback(data?.answer || ''),
       rating,
       nextQuestion: nextQ,
+      nonVerbalCue: 'Noted problem-solving approach',
+      modelAnswerSnippet: 'Highlight concrete metrics and describe trade-offs between speed and consistency.',
       source: 'local',
     }
     sessions.set(data?.sessionId, { ...state, index: state.index + 1, asked: [...state.asked, nextQ] })
@@ -297,11 +374,40 @@ export const submitAnswer = async (data) => {
   }
 }
 
-export const getInterviewSummary = async ({ sessionId, history }) => {
+export const getInterviewHint = async (data) => {
+  const state = sessions.get(data?.sessionId) || { type: 'Technical', role: 'Software Engineer' }
   try {
-    const body = await invoke('summary', { sessionId, history })
+    const body = await invoke('hint', { ...data, role: state.role, type: state.type })
     return { data: body }
   } catch {
-    return { data: { ...heuristicSummary(history || []), source: 'local' } }
+    return {
+      data: {
+        hint: `Consider breaking this down step-by-step: first identify the core constraint, then talk through how you'd scale or handle failure scenarios.`,
+        source: 'local',
+      },
+    }
+  }
+}
+
+export const getInterviewSummary = async ({ sessionId, history, role, type }) => {
+  const state = sessions.get(sessionId) || { type: type || 'Technical', role: role || 'Software Engineer' }
+  try {
+    const body = await invoke('summary', { sessionId, history, role: state.role, type: state.type })
+    return { data: body }
+  } catch {
+    const base = heuristicSummary(history || [])
+    return {
+      data: {
+        ...base,
+        technicalScore: base.score,
+        starScore: Math.min(95, base.score + 5),
+        communicationScore: Math.max(50, base.score - 4),
+        modelAnswers: history.map((h) => ({
+          question: h.question,
+          modelAnswer: `Lead with the concrete outcome: "In my previous project, we solved this by... resulting in 45% lower latency."`,
+        })),
+        source: 'local',
+      },
+    }
   }
 }

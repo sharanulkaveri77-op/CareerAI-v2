@@ -87,22 +87,23 @@ export default function InterviewHub() {
               </span>
             </div>
             <h3 className="text-xl font-bold text-heading mt-4 group-hover:text-purple transition">
-              AI Virtual Interviewer
+              Live Interactive AI Interviewer
             </h3>
             <p className="text-sm text-gray-400 mt-2 leading-relaxed">
-              Step into an immersive video-call interview room with an AI technical lead. Answer real-time questions with voice input, get instant scoring, and receive targeted coaching.
+              Step into a real-time 2-way video interview with animated AI hiring managers (Sarah Vance, Alex Rivera, Dr. Chen Wei, Maya Patel). Enjoy hands-free voice turn-taking, live closed captions, in-call code scratchpad, and executive scorecards.
             </p>
             <div className="flex flex-wrap gap-2 mt-4">
-              <Pill><Zap size={12} className="text-purple" /> Instant Setup</Pill>
-              <Pill><Mic size={12} className="text-teal" /> Voice Recognition</Pill>
-              <Pill><Radio size={12} className="text-blue" /> Live Feedback</Pill>
+              <Pill><Zap size={12} className="text-purple" /> Hands-Free Voice</Pill>
+              <Pill><Bot size={12} className="text-teal" /> 4 AI Personas</Pill>
+              <Pill><Radio size={12} className="text-blue" /> Live Closed Captions</Pill>
+              <Pill><FileText size={12} className="text-pink-400" /> Code Scratchpad</Pill>
             </div>
           </div>
           <button
             onClick={() => navigate('/interview/ai')}
             className="btn-primary mt-6 self-start flex items-center gap-2 py-2.5 px-5 font-medium shadow-glow-purple"
           >
-            Start AI Interview <ArrowRight size={16} />
+            Start Live AI Interview <ArrowRight size={16} />
           </button>
         </div>
 
