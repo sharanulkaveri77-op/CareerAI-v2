@@ -35,7 +35,7 @@ import { invokeAi } from '../api/ai'
 
 const DEMO_RESUME_DATA = {
   personal: {
-    name: 'ALEX MORGAN',
+    name: 'SHARANU',
     location: 'San Francisco, CA',
     email: 'alex.morgan@example.com',
     emailLabel: 'Email',
