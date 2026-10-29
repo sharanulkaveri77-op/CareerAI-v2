@@ -113,26 +113,26 @@ function maxSubarraySum(arr, k) {
     _id: 'learning-4',
     type: 'course',
     category: 'AI & Machine Learning',
-    title: 'Generative AI & LLM Engineering with Google Gemini 2.5',
+    title: 'Generative AI & LLM Engineering with Google Gemini 3.8 Flash',
     description: 'Build and deploy production-ready AI applications, prompt engineering pipelines, and fine-tuned models.',
     url: 'https://coursera.org',
     duration: '4 Weeks',
     level: 'Advanced',
     content: {
-      overview: 'Comprehensive AI developer guide covering Google Gemini 2.5 Flash API integration, RAG (Retrieval-Augmented Generation), and Agentic Workflows.',
+      overview: 'Comprehensive AI developer guide covering Google Gemini 3.8 Flash API integration, RAG (Retrieval-Augmented Generation), and Agentic Workflows.',
       modules: [
         'Module 1: Prompt Engineering Techniques (Few-Shot, Chain-of-Thought)',
-        'Module 2: Gemini 3.6 Flash API JSON Schema Enforcement',
+        'Module 2: Gemini 3.8 Flash API JSON Schema Enforcement',
         'Module 3: Vector Embeddings & Semantic Document Search',
         'Module 4: Building Autonomous AI Coding Agents',
       ],
       keyTakeaways: [
-        'Leverage Gemini 3.6 Flash for sub-second structured JSON responses',
+        'Leverage Gemini 3.8 Flash for sub-second structured JSON responses',
         'Implement fallback model chains for 99.99% uptime resiliency',
         'Build self-correcting AI agent loops with tool usage capabilities',
       ],
-      codeSnippet: `// Gemini 3.6 Flash API Call with JSON Enforcement
-const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + API_KEY, {
+      codeSnippet: `// Gemini 3.8 Flash API Call with JSON Enforcement
+const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' + API_KEY, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -245,12 +245,48 @@ export async function getLearning(params = {}) {
       return { data: { materials: rows } }
     }
   } catch {
-    /* fallback to DEFAULT_MATERIALS */
+    /* fallback to local storage & DEFAULT_MATERIALS */
   }
+
+  // Load custom admin materials from localStorage
+  let localAdminMaterials = []
+  try {
+    const raw = localStorage.getItem('careeriq_admin_materials')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      localAdminMaterials = (parsed || []).map((m) => ({
+        _id: m.id,
+        type: (m.type || 'course').toLowerCase(),
+        category: m.category || 'General',
+        title: m.title,
+        description: m.description || `Interactive resource curated for ${m.title}.`,
+        url: m.url || '#',
+        duration: m.duration || 'Self-Paced',
+        level: m.level || 'Intermediate',
+        content: {
+          overview: m.description || `Study guide and core implementation details for ${m.title}.`,
+          modules: ['Foundations & Overview', 'Implementation Blueprint', 'Summary & Review'],
+          keyTakeaways: ['Key technical patterns', 'Production architecture'],
+          codeSnippet: `// Study module for ${m.title}\nconsole.log("Learning ${m.title}");`,
+        },
+      }))
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const combined = [...localAdminMaterials, ...DEFAULT_MATERIALS]
+  const seenTitles = new Set()
+  const uniqueMaterials = combined.filter((m) => {
+    const key = (m.title || '').toLowerCase().trim()
+    if (seenTitles.has(key)) return false
+    seenTitles.add(key)
+    return true
+  })
 
   return {
     data: {
-      materials: DEFAULT_MATERIALS,
+      materials: uniqueMaterials,
     },
   }
 }

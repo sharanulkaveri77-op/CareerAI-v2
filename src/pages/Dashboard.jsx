@@ -126,14 +126,41 @@ export default function Dashboard() {
 
   useEffect(() => {
     let active = true
-    Promise.all([getSummary(), getTrends()])
-      .then(([s, t]) => {
-        if (!active) return
-        setSummary(s.data)
-        setTrends(t.data?.trends || t.data || [])
-      })
-      .catch((e) => active && setError(e.userMessage || 'Failed to load dashboard'))
-      .finally(() => active && setLoading(false))
+
+    const loadData = () => {
+      Promise.all([getSummary(), getTrends()])
+        .then(([s, t]) => {
+          if (!active) return
+          setSummary(s.data)
+          setTrends(t.data?.trends || t.data || [])
+        })
+        .catch((e) => active && setError(e.userMessage || 'Failed to load dashboard'))
+        .finally(() => active && setLoading(false))
+
+      // Load applications
+      getApplications()
+        .then((apps) => active && setApplications(apps || []))
+        .catch(() => {})
+
+      // Load user skills
+      getSkills()
+        .then((res) => {
+          if (active) setUserSkills(res.data?.skills || [])
+        })
+        .catch(() => {})
+
+      // Sync stored preferences & progress
+      try {
+        const rawOnb = localStorage.getItem('careeriq_onboarding')
+        if (rawOnb && active) setOnboardingData(JSON.parse(rawOnb))
+        const rawAudit = localStorage.getItem('careeriq_latest_resume_audit')
+        if (rawAudit && active) setResumeAudit(JSON.parse(rawAudit))
+      } catch {
+        /* ignore */
+      }
+    }
+
+    loadData()
 
     // Check first-time setup
     const done = localStorage.getItem('careeriq_onboarding')
@@ -141,20 +168,15 @@ export default function Dashboard() {
       setShowSetupModal(true)
     }
 
-    // Load applications
-    getApplications()
-      .then((apps) => active && setApplications(apps || []))
-      .catch(() => {})
-
-    // Load user skills
-    getSkills()
-      .then((res) => {
-        if (active) setUserSkills(res.data?.skills || [])
-      })
-      .catch(() => {})
+    window.addEventListener('careeriq:datachange', loadData)
+    window.addEventListener('storage', loadData)
+    window.addEventListener('focus', loadData)
 
     return () => {
       active = false
+      window.removeEventListener('careeriq:datachange', loadData)
+      window.removeEventListener('storage', loadData)
+      window.removeEventListener('focus', loadData)
     }
   }, [])
 

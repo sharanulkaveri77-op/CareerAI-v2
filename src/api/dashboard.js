@@ -21,12 +21,81 @@ async function safeCount(table) {
   }
 }
 
+function getLocalSummary() {
+  let skills = []
+  let savedRoles = 0
+  let onboarding = {}
+  let profile = {}
+
+  try {
+    const rawSkills = localStorage.getItem('careeriq_skills')
+    if (rawSkills) skills = JSON.parse(rawSkills)
+  } catch {
+    /* noop */
+  }
+
+  try {
+    const rawRoles = localStorage.getItem('careeriq_saved_roles')
+    if (rawRoles) savedRoles = (JSON.parse(rawRoles) || []).length
+  } catch {
+    /* noop */
+  }
+
+  try {
+    const rawOnb = localStorage.getItem('careeriq_onboarding')
+    if (rawOnb) onboarding = JSON.parse(rawOnb) || {}
+  } catch {
+    /* noop */
+  }
+
+  try {
+    const rawProf = localStorage.getItem('careeriq_user_profile')
+    if (rawProf) profile = JSON.parse(rawProf) || {}
+  } catch {
+    /* noop */
+  }
+
+  const targetRole = profile.target_role || onboarding.targetRole || 'Full Stack Engineer'
+  const currentRole = profile.current_role || onboarding.degree || 'Computer Science Student'
+  const fullName = profile.full_name || onboarding.fullName || ''
+
+  const skillGaps = Math.max(
+    1,
+    skills.filter((s) => ['beginner', 'intermediate'].includes((s.level || '').toLowerCase())).length
+  )
+  const advanced = skills.filter((s) => ['advanced', 'expert'].includes((s.level || '').toLowerCase())).length
+
+  const careerHealth = Math.min(
+    100,
+    Math.max(
+      65,
+      (currentRole ? 20 : 0) +
+        (targetRole ? 15 : 0) +
+        Math.min(25, (skills.length || 3) * 5) +
+        Math.min(20, advanced * 6) +
+        Math.min(20, savedRoles * 5) +
+        (fullName ? 10 : 0)
+    )
+  )
+
+  return {
+    profileComplete: !!fullName && skills.length > 0,
+    currentRole,
+    skillGaps,
+    savedRoles,
+    targetRole,
+    careerHealth,
+  }
+}
+
 export async function getSummary() {
   const fetchSummary = async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    if (!user || user.id?.startsWith('local-') || user.id?.startsWith('demo-')) {
+      return getLocalSummary()
+    }
 
     let profile = null
     let skills = []
@@ -80,20 +149,11 @@ export async function getSummary() {
     return { data: res }
   } catch {
     return {
-      data: {
-        profileComplete: false,
-        currentRole: '',
-        skillGaps: 3,
-        savedRoles: 0,
-        targetRole: 'Full Stack Engineer',
-        careerHealth: 85,
-      },
+      data: getLocalSummary(),
     }
   }
 }
 
 export async function getTrends() {
-  // Return cached market trends instantly to eliminate 3s Gemini AI network latency on dashboard startup
   return { data: DEFAULT_TRENDS }
 }
-

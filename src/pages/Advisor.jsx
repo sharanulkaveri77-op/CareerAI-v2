@@ -5,12 +5,31 @@ import PageHeader from '../components/PageHeader'
 import { Spinner } from '../components/Feedback'
 import { sendChat } from '../api/advisor'
 
+const ADVISOR_STORAGE_KEY = 'careeriq_advisor_chat'
+
+function getInitialMessages() {
+  try {
+    const raw = localStorage.getItem(ADVISOR_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
 export default function Advisor() {
-  const [messages, setMessages] = useState([]) // {role, content}
+  const [messages, setMessages] = useState(getInitialMessages) // {role, content}
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const scrollRef = useRef(null)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ADVISOR_STORAGE_KEY, JSON.stringify(messages))
+    } catch {
+      /* noop */
+    }
+  }, [messages])
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -45,6 +64,11 @@ export default function Advisor() {
   const handleResetChat = () => {
     setMessages([])
     setError('')
+    try {
+      localStorage.removeItem(ADVISOR_STORAGE_KEY)
+    } catch {
+      /* noop */
+    }
   }
 
   const onKeyDown = (e) => {

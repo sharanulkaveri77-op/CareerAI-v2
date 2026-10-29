@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-// Primary AI Provider: Google Gemini API (gemini-3.6-flash) via VITE_GEMINI_API_KEY
+// Primary AI Provider: Google Gemini API (gemini-3.8-flash) via VITE_GEMINI_API_KEY
 // Fallback 1: Supabase Edge Function (`career-ai`)
 // Fallback 2: Intelligent Local AI Engine
 
@@ -36,34 +36,37 @@ async function callGemini(contents, systemInstruction = '') {
     }
   }
 
-  const model = 'gemini-3.6-flash'
+  const models = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash']
   let lastErr = null
 
-  // Retry loop for rate-limits (HTTP 429)
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
+  for (const model of models) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
 
-      if (res.ok) {
-        const data = await res.json()
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-        return rawText.trim()
+        if (res.ok) {
+          const data = await res.json()
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+          return rawText.trim()
+        }
+
+        if (res.status === 429 && attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+          continue
+        }
+
+        const errJson = await res.json().catch(() => ({}))
+        lastErr = new Error(errJson.error?.message || `Gemini ${model} error ${res.status}`)
+        break
+      } catch (e) {
+        lastErr = e
+        break
       }
-
-      if (res.status === 429 && attempt < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-        continue
-      }
-
-      const errJson = await res.json().catch(() => ({}))
-      lastErr = new Error(errJson.error?.message || `Gemini ${model} error ${res.status}`)
-    } catch (e) {
-      lastErr = e
     }
   }
 

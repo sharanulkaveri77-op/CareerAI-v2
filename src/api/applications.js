@@ -14,6 +14,9 @@ function getLocalApplications() {
 function saveLocalApplications(apps) {
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(apps))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('careeriq:datachange', { detail: { key: LOCAL_KEY, apps } }))
+    }
   } catch {
     /* noop */
   }

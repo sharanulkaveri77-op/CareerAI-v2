@@ -102,6 +102,29 @@ export default function Skills() {
 
   useEffect(() => {
     fetchUserSkills()
+
+    const handleSync = () => {
+      fetchUserSkills()
+      try {
+        const raw = localStorage.getItem('careeriq_onboarding')
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed.targetRole) setTargetRole(parsed.targetRole)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    window.addEventListener('careeriq:datachange', handleSync)
+    window.addEventListener('storage', handleSync)
+    window.addEventListener('focus', handleSync)
+
+    return () => {
+      window.removeEventListener('careeriq:datachange', handleSync)
+      window.removeEventListener('storage', handleSync)
+      window.removeEventListener('focus', handleSync)
+    }
   }, [])
 
   // Auto-run gap analysis when skills or targetRole change

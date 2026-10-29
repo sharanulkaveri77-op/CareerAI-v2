@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
 
-// Primary path: Google Gemini API (gemini-3.6-flash).
+// Primary path: Google Gemini API (gemini-3.8-flash).
 // Fallback: Built-in question bank + rule-based coaching engine.
 
-const QUESTION_BANK = {
+export const QUESTION_BANK = {
   Technical: [
     'Walk me through the most technically challenging architecture you built recently. What trade-offs did you make?',
     'How do you debug a production memory leak or CPU spike in a distributed Node/Java web service?',
@@ -154,7 +154,7 @@ async function invokeGeminiInterview(action, payload) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('No Gemini API key')
 
-  const models = ['gemini-3.8-flash', 'gemini-3.6-flash']
+  const models = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash']
 
   const call = async (prompt, systemInstruction = '') => {
     let lastErr = null
@@ -185,11 +185,11 @@ async function invokeGeminiInterview(action, payload) {
   }
 
   if (action === 'start') {
-    const { role = 'Software Engineer', type = 'Technical', persona = {} } = payload
+    const { role = 'Software Engineer', type = 'Technical', persona = {}, level = 'Senior' } = payload
     const personaName = persona.name || 'Sarah Vance'
     const personaTitle = persona.title || 'Principal Architect'
-    const prompt = `You are ${personaName}, ${personaTitle}. You are conducting a realistic live ${type} interview for the role: "${role}".
-Generate the opening interview question. It should be engaging, practical, realistic, and tailored to ${type} skills.
+    const prompt = `You are ${personaName}, ${personaTitle}. You are conducting a realistic live ${type} interview for the role "${role}" at experience level "${level}".
+Generate the opening interview question. It should be engaging, practical, realistic, calibrated to ${level} expectations, and tailored to ${type} skills.
 Return JSON object:
 {
   "sessionId": "${crypto.randomUUID()}",
@@ -199,9 +199,9 @@ Return JSON object:
   }
 
   if (action === 'hint') {
-    const { question, role = 'Software Engineer', type = 'Technical', persona = {} } = payload
+    const { question, role = 'Software Engineer', type = 'Technical', persona = {}, level = 'Senior' } = payload
     const personaName = persona.name || 'Sarah Vance'
-    const prompt = `The candidate is in a live ${type} interview for "${role}".
+    const prompt = `The candidate is in a live ${type} interview for "${role}" (${level}).
 Current Question: "${question}"
 The candidate just clicked "Ask for Clarification / Hint".
 As ${personaName}, provide a realistic, conversational, 1-2 sentence clarification or hint to unblock them without spoon-feeding the entire solution.
@@ -221,18 +221,19 @@ Return JSON object:
       history = [],
       role = 'Software Engineer',
       persona = {},
+      level = 'Senior',
     } = payload
     const personaName = persona.name || 'Sarah Vance'
     const previousQuestions = history.map((h) => h.question)
 
-    const prompt = `You are ${personaName}, a Senior Hiring Manager conducting a live interactive ${type} interview for the role "${role}".
+    const prompt = `You are ${personaName}, a Senior Hiring Manager conducting a live interactive ${type} interview for the role "${role}" at "${level}" seniority.
 Current Question Asked: "${question}"
 Candidate's Spoken Answer: "${answer}"
 ${scratchpad ? `Candidate's Live Scratchpad / Code: \n"""\n${scratchpad}\n"""` : ''}
 
 Respond like a real human interviewer on a live video call:
 1. "aiResponse": 1-2 conversational sentences reacting directly to the candidate's specific points and code (e.g. "I like how you considered idempotency keys for the payment endpoint...").
-2. "feedback": 1-2 sentences of constructive STAR coaching evaluating technical precision, structure, or depth.
+2. "feedback": 1-2 sentences of constructive STAR coaching evaluating technical precision, structure, or depth for a ${level} candidate.
 3. "rating": One of "Strong", "Good", or "Needs Depth".
 4. "nextQuestion": A natural, progressive follow-up or next question building on what they said. Do NOT repeat: [${previousQuestions.join(' | ')}].
 5. "nonVerbalCue": A short 2-4 word interviewer observation (e.g., "Noted architectural trade-off", "Appreciated edge-case handling", "Looking for metric impact").
@@ -251,7 +252,7 @@ Return JSON object:
   }
 
   if (action === 'summary') {
-    const { history = [], role = 'Software Engineer', type = 'Technical' } = payload
+    const { history = [], role = 'Software Engineer', type = 'Technical', level = 'Senior' } = payload
     const transcript = history
       .map(
         (h, i) =>
@@ -259,7 +260,7 @@ Return JSON object:
       )
       .join('\n\n')
 
-    const prompt = `Evaluate the candidate's complete performance in this ${type} interview for "${role}".
+    const prompt = `Evaluate the candidate's complete performance in this ${type} interview for "${role}" at "${level}" level.
 Transcript:
 ${transcript || 'No answers provided'}
 
@@ -310,6 +311,7 @@ export const startInterview = async (data) => {
     sessions.set(body.sessionId, {
       type: data?.type || 'Technical',
       role: data?.role || 'Software Engineer',
+      level: data?.level || 'Senior',
       persona: data?.persona || null,
       index: 1,
       asked: [body.question],
@@ -320,6 +322,7 @@ export const startInterview = async (data) => {
     sessions.set(sessionId, {
       type: data?.type || 'Technical',
       role: data?.role || 'Software Engineer',
+      level: data?.level || 'Senior',
       persona: data?.persona || null,
       index: 1,
       asked: [firstQ],
@@ -337,6 +340,7 @@ export const submitAnswer = async (data) => {
   const state = sessions.get(data?.sessionId) || {
     type: 'Technical',
     role: 'Software Engineer',
+    level: 'Senior',
     persona: null,
     index: 0,
     asked: [],
@@ -345,6 +349,7 @@ export const submitAnswer = async (data) => {
     const body = await invoke('answer', {
       ...data,
       role: state.role,
+      level: state.level,
       persona: state.persona,
       history: state.asked.map((q) => ({ question: q })),
     })
@@ -375,9 +380,9 @@ export const submitAnswer = async (data) => {
 }
 
 export const getInterviewHint = async (data) => {
-  const state = sessions.get(data?.sessionId) || { type: 'Technical', role: 'Software Engineer' }
+  const state = sessions.get(data?.sessionId) || { type: 'Technical', role: 'Software Engineer', level: 'Senior' }
   try {
-    const body = await invoke('hint', { ...data, role: state.role, type: state.type })
+    const body = await invoke('hint', { ...data, role: state.role, type: state.type, level: state.level })
     return { data: body }
   } catch {
     return {
@@ -389,10 +394,10 @@ export const getInterviewHint = async (data) => {
   }
 }
 
-export const getInterviewSummary = async ({ sessionId, history, role, type }) => {
-  const state = sessions.get(sessionId) || { type: type || 'Technical', role: role || 'Software Engineer' }
+export const getInterviewSummary = async ({ sessionId, history, role, type, level }) => {
+  const state = sessions.get(sessionId) || { type: type || 'Technical', role: role || 'Software Engineer', level: level || 'Senior' }
   try {
-    const body = await invoke('summary', { sessionId, history, role: state.role, type: state.type })
+    const body = await invoke('summary', { sessionId, history, role: state.role, type: state.type, level: state.level })
     return { data: body }
   } catch {
     const base = heuristicSummary(history || [])
@@ -402,7 +407,7 @@ export const getInterviewSummary = async ({ sessionId, history, role, type }) =>
         technicalScore: base.score,
         starScore: Math.min(95, base.score + 5),
         communicationScore: Math.max(50, base.score - 4),
-        modelAnswers: history.map((h) => ({
+        modelAnswers: (history || []).map((h) => ({
           question: h.question,
           modelAnswer: `Lead with the concrete outcome: "In my previous project, we solved this by... resulting in 45% lower latency."`,
         })),
@@ -410,4 +415,179 @@ export const getInterviewSummary = async ({ sessionId, history, role, type }) =>
       },
     }
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                   SESSION STORAGE & PEER COPILOT HELPERS                   */
+/* -------------------------------------------------------------------------- */
+
+const SESSIONS_STORAGE_KEY = 'careeriq_user_interview_sessions'
+
+export const DEFAULT_PAST_SESSIONS = [
+  {
+    id: 'sess-101',
+    role: 'Full Stack Engineer (React & Node.js)',
+    type: 'Technical',
+    date: 'Yesterday, 4:30 PM',
+    duration: '18 mins',
+    overallScore: 88,
+    sessionType: 'AI Mock Session',
+    persona: {
+      name: 'Sarah Vance',
+      title: 'Principal Systems Architect',
+      company: 'CloudScale Labs',
+    },
+    metrics: {
+      technicalAccuracy: '90%',
+      communicationConfidence: '85%',
+      systemArchitecture: '88%',
+    },
+    aiFeedback:
+      'Strong explanation of React Virtual DOM and async event loops. Next time, elaborate more on database transaction isolation levels.',
+    strengths: [
+      'Articulate breakdown of V8 microtasks vs macrotasks',
+      'Solid intuition for client-side bundle splitting and code-splitting',
+    ],
+    improvements: [
+      'Quantify database I/O latency metrics when discussing Redis caching',
+      'Elaborate on ACID guarantees during concurrent write conflicts',
+    ],
+    history: [
+      {
+        question: 'Walk me through how you optimize a React dashboard experiencing re-rendering bottlenecks.',
+        answer:
+          'I use React Profiler to isolate unnecessary commit phases, then memoize expensive selectors with useMemo and callbacks with useCallback. For complex state, I split context providers to avoid re-rendering unrelated leaf nodes.',
+        tip: 'Good mention of React Profiler! Highlight how virtualized lists (react-window) handle large datasets.',
+        rating: 'Strong',
+        modelAnswerSnippet:
+          'A top candidate identifies expensive component subtrees using DevTools Profiler, implements windowing/virtualization for long lists, splits contexts, and applies Web Workers for intensive data manipulation.',
+      },
+      {
+        question: 'How do you prevent race conditions when two users update the same record concurrently?',
+        answer:
+          'We use optimistic locking with a version number column in Postgres. If the version changed upon update, the transaction aborts and returns an HTTP 409 conflict.',
+        tip: 'Spot on with optimistic locking and versioning.',
+        rating: 'Strong',
+        modelAnswerSnippet:
+          'Explain optimistic concurrency control using version timestamps vs pessimistic SELECT FOR UPDATE row locks, and discuss idempotency keys for distributed retry requests.',
+      },
+    ],
+  },
+  {
+    id: 'sess-102',
+    role: 'Backend Architect (System Design)',
+    type: 'System Design',
+    date: '3 days ago',
+    duration: '25 mins',
+    overallScore: 82,
+    sessionType: 'Peer Mock Session',
+    persona: {
+      name: 'Alex Rivera',
+      title: 'VP of Engineering',
+      company: 'NextGen Velocity',
+    },
+    metrics: {
+      technicalAccuracy: '84%',
+      communicationConfidence: '80%',
+      systemArchitecture: '82%',
+    },
+    aiFeedback:
+      'Excellent choice of Redis caching layer and Kafka message queues. Ensure to specify fallback policies during cache invalidation.',
+    strengths: [
+      'Thorough back-of-the-envelope calculations for 100k QPS',
+      'Clean separation between ingestion and analytics pipelines',
+    ],
+    improvements: [
+      'Specify replication factor and leader election for Kafka brokers',
+      'Include disaster recovery strategy for cross-region data stores',
+    ],
+    history: [
+      {
+        question: 'Design a distributed rate limiter that throttles API requests per IP across a microservice cluster.',
+        answer:
+          'I would implement a Token Bucket algorithm backed by Redis with atomic Lua scripts to avoid race conditions. If Redis fails, fall back to local in-memory rate limiting with higher thresholds.',
+        tip: 'Excellent use of Redis Lua scripts for atomicity. Clarify TTL on bucket keys.',
+        rating: 'Strong',
+        modelAnswerSnippet:
+          'Top candidates discuss sliding window counter vs token bucket, atomic Redis Lua execution, local memory caching fallback, and HTTP 429 response headers with Retry-After directives.',
+      },
+    ],
+  },
+]
+
+export function getInterviewSessions() {
+  if (typeof window === 'undefined') return DEFAULT_PAST_SESSIONS
+  try {
+    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to parse stored interview sessions:', err)
+  }
+  return DEFAULT_PAST_SESSIONS
+}
+
+export async function saveInterviewSession(session) {
+  // 1. Attempt Supabase insert if logged in
+  try {
+    const { data: authData } = await supabase.auth.getUser()
+    const user = authData?.user
+    if (user) {
+      await supabase.from('interviews').insert([{
+        user_id: user.id,
+        student_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Candidate',
+        type: session.type || 'Technical',
+        role: session.role || 'Software Engineer',
+        score: Math.min(100, Math.max(0, session.score || session.overallScore || 80)),
+        scheduled_at: new Date().toISOString(),
+      }])
+    }
+  } catch (err) {
+    console.warn('Supabase interview insert skipped/failed:', err)
+  }
+
+  // 2. Persist full rich session object to localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = getInterviewSessions()
+      const updated = [session, ...existing.filter((s) => s.id !== session.id)].slice(0, 50)
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated))
+    } catch (err) {
+      console.warn('LocalStorage save failed:', err)
+    }
+  }
+  return session
+}
+
+export function deleteInterviewSession(id) {
+  if (typeof window === 'undefined') return []
+  try {
+    const existing = getInterviewSessions()
+    const updated = existing.filter((s) => s.id !== id)
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated))
+    return updated
+  } catch {
+    return []
+  }
+}
+
+export async function generatePeerQuestion(role = 'Software Engineer', type = 'Technical') {
+  if (import.meta.env.VITE_GEMINI_API_KEY) {
+    try {
+      const res = await invokeGeminiInterview('start', {
+        role,
+        type,
+        persona: { name: 'Interviewer', title: 'Tech Lead' },
+      })
+      if (res?.question) return res.question
+    } catch {
+      // fallback
+    }
+  }
+  const bank = QUESTION_BANK[type] || QUESTION_BANK.Technical
+  return bank[Math.floor(Math.random() * bank.length)]
 }

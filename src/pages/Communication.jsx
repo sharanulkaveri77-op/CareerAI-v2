@@ -101,6 +101,19 @@ export default function Communication() {
         text: userText.trim(),
       })
       setFeedback(res)
+      try {
+        localStorage.setItem(
+          'careeriq_communication_latest',
+          JSON.stringify({
+            topicTitle: selectedTopic.title,
+            score: res.score,
+            verdict: res.verdict,
+            submittedAt: new Date().toISOString(),
+          })
+        )
+      } catch {
+        /* noop */
+      }
     } catch {
       alert('Unable to process speech evaluation right now. Please try submitting again.')
     } finally {
@@ -275,7 +288,7 @@ export default function Communication() {
                     AI Evaluation Engine
                   </p>
                   <p className="text-xs text-teal font-semibold mt-1">
-                    Gemini 2.5 Flash
+                    Gemini 3.8 Flash
                   </p>
                 </div>
               </div>

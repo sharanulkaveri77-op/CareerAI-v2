@@ -307,3 +307,97 @@ html.theme-light .skeleton::after {
     margin: 10mm 14mm;
   }
 }
+
+
+/* ----------------------------------------------------------- ZORO HUD */
+.hud-panel {
+  position: relative;
+  background-color: rgba(15, 8, 30, 0.78);
+  border: 1px solid rgba(131, 62, 239, 0.28);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(131, 62, 239, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.hud-panel-active {
+  border-color: rgba(131, 62, 239, 0.65);
+  box-shadow: 0 4px 24px rgba(131, 62, 239, 0.25), inset 0 0 16px rgba(131, 62, 239, 0.12);
+}
+
+.hud-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #A79DB8;
+  font-weight: 500;
+}
+
+.hud-value {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.875rem;
+  color: #FFFFFF;
+}
+
+.hud-heading {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: #C084FC;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  box-shadow: 0 0 8px currentColor;
+}
+
+@keyframes hud-ring-spawn {
+  from {
+    opacity: 0;
+    transform: scale(0.32);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.hud-ring-spawn {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: hud-ring-spawn 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes shell-flash-core {
+  0% { opacity: 0; }
+  4% { opacity: 1; }
+  12% { opacity: 0.3; }
+  18% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes shell-flash-halo {
+  0% { opacity: 0; }
+  6% { opacity: 0.8; }
+  22% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.shell-flash-core {
+  animation: shell-flash-core 3.5s ease-out infinite;
+}
+
+.shell-flash-halo {
+  animation: shell-flash-halo 3.5s ease-out infinite;
+}
+
+.text-text-muted { color: #A79DB8; }
+.text-text-secondary { color: #E9D5FF; }
+.text-text-main { color: #FFFFFF; }
+.bg-surface { background-color: #0F081E; }
+.bg-surface-raised { background-color: #170E2E; }

@@ -81,6 +81,9 @@ function getLocalSkills() {
 function saveLocalSkills(list) {
   try {
     localStorage.setItem(LOCAL_SKILLS_KEY, JSON.stringify(list))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('careeriq:datachange', { detail: { key: LOCAL_SKILLS_KEY, list } }))
+    }
   } catch {
     /* noop */
   }

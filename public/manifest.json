@@ -1,0 +1,22 @@
+{
+  "name": "CareerAI · Career Intelligence Platform",
+  "short_name": "CareerAI",
+  "description": "AI-powered career intelligence, mock interviews, and ATS resume platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0614",
+  "theme_color": "#833eef",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/assets/SG-CUBE.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+

@@ -24,7 +24,7 @@ Software Engineering Intern | TechCorp Inc. (June 2023 - Present)
 
 PROJECTS
 CareerAI - Intelligent Career Growth SaaS
-- Built a full-stack career platform using React, Vite, Supabase, and Google Gemini 2.5 Flash API.
+- Built a full-stack career platform using React, Vite, Supabase, and Google Gemini 3.8 Flash API.
 - Implemented real-time ATS resume scanning, DSA practice engine, and voice communication coaching.`
 
 async function extractPdfText(file) {

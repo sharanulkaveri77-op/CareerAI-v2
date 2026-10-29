@@ -1,19 +1,43 @@
 import { supabase } from './supabase'
 
+const LOCAL_PROFILE_KEY = 'careeriq_user_profile'
+
+function getLocalProfile() {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROFILE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveLocalProfile(data) {
+  try {
+    localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(data))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('careeriq:datachange', { detail: { key: LOCAL_PROFILE_KEY, data } }))
+    }
+  } catch {
+    /* noop */
+  }
+}
+
 export async function getProfile() {
+  const local = getLocalProfile()
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return null
+    if (!user) return local
 
     if (user.id?.startsWith('local-') || user.id?.startsWith('demo-')) {
-      return {
+      const fallback = local || {
         id: user.id,
         full_name: user.user_metadata?.full_name || 'User',
         role: user.user_metadata?.role || 'student',
         usn: user.user_metadata?.usn || '1MS22CS001',
       }
+      return fallback
     }
 
     const fetchProfile = async () => {
@@ -26,28 +50,35 @@ export async function getProfile() {
       return data
     }
 
-    return await Promise.race([
+    const remote = await Promise.race([
       fetchProfile(),
       new Promise((resolve) => setTimeout(() => resolve(null), 1000)),
     ])
+    if (remote) {
+      saveLocalProfile(remote)
+      return remote
+    }
+    return local
   } catch {
-    return null
+    return local
   }
 }
 
 export async function upsertProfile(patch) {
+  const current = getLocalProfile() || {}
+  const merged = { ...current, ...patch, updated_at: new Date().toISOString() }
+  saveLocalProfile(merged)
+
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
-
-    if (user.id?.startsWith('local-') || user.id?.startsWith('demo-')) {
-      return { id: user.id, ...patch }
+    if (!user || user.id?.startsWith('local-') || user.id?.startsWith('demo-')) {
+      return { id: user?.id || 'local-user', ...merged }
     }
 
     const payload = {
-      ...patch,
+      ...merged,
       id: user.id,
       updated_at: new Date().toISOString(),
     }
@@ -59,13 +90,16 @@ export async function upsertProfile(patch) {
       .single()
 
     if (error) throw error
-    return data
+    if (data) {
+      saveLocalProfile(data)
+      return data
+    }
   } catch {
-    return { ...patch }
+    /* fallback to local profile */
   }
+  return merged
 }
 
 export async function updateProfile(patch) {
   return upsertProfile(patch)
 }
-

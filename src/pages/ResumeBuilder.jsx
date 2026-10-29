@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   FileText,
   Sparkles,
@@ -121,12 +121,32 @@ const DEMO_RESUME_DATA = {
   languages: 'English (Fluent), Spanish (Conversational), German (Elementary)',
 }
 
+const RESUME_BUILDER_STORAGE_KEY = 'careeriq_resume_builder_data'
+
+function getInitialResumeData() {
+  try {
+    const raw = localStorage.getItem(RESUME_BUILDER_STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {
+    /* fallback */
+  }
+  return DEMO_RESUME_DATA
+}
+
 /* -------------------------------------------------------------------------- */
 /*                               MAIN COMPONENT                              */
 /* -------------------------------------------------------------------------- */
 
 export default function ResumeBuilder() {
-  const [resume, setResume] = useState(DEMO_RESUME_DATA)
+  const [resume, setResume] = useState(getInitialResumeData)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RESUME_BUILDER_STORAGE_KEY, JSON.stringify(resume))
+    } catch {
+      /* ignore */
+    }
+  }, [resume])
   const [activeAccordion, setActiveAccordion] = useState('summary')
   const [enhancingKey, setEnhancingKey] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -226,6 +246,11 @@ Provide a JSON response:
 
   const handleResetToTemplate = () => {
     setResume(DEMO_RESUME_DATA)
+    try {
+      localStorage.removeItem(RESUME_BUILDER_STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
     setAtsScore(null)
   }
 
