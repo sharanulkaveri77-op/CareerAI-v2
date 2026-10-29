@@ -44,28 +44,32 @@ export async function generateZoroResponse(userText, options = {}) {
         .map((h) => `${h.sender === 'user' ? candidateName : 'CAREERAI'}: ${h.text}`)
         .join('\n')
 
-      const prompt = `You are CAREERAI, a friendly, encouraging AI technical interviewer talking live on video with candidate ${candidateName}.
-Candidate's Target Role: ${roleData.title}
-Current Difficulty Level: ${currentDiff.toUpperCase()} (Ladder: Turn 1-2 = Basic/Simple warm-up, Turn 3-4 = Medium/Practical, Turn 5+ = Difficult/Advanced).
-Current Question Number: ${questionIndex + 1}
+      const isExplicitQuestionRequest =
+        lower.includes('next question') ||
+        lower.includes('ask me a question') ||
+        lower.includes('give me a question') ||
+        lower.includes('interview question') ||
+        lower.includes('test me') ||
+        lower.includes('quiz me')
 
-Recent Interview Context:
+      const prompt = `You are CAREERAI, a friendly, encouraging AI conversational companion and technical mentor talking live on video with ${candidateName}.
+Target Role: ${roleData.title}
+
+Recent Conversation Context:
 ${recentTurns}
 
 Candidate ${candidateName} Said/Asked: "${cleanText}"
 
-Instructions:
-1. Speak in 2-3 natural spoken sentences (around 35 to 55 words) directly to ${candidateName}. Be warm, supportive, and clear.
-2. If ${candidateName} asked a question (e.g. "what is html", "what is react", "what is sql", asking for a hint or clarification):
-   - First, explain the exact concept ${candidateName} asked about simply and clearly in 1-2 conversational sentences.
-   - Then, ask the next technical question calibrated for a ${roleData.title} at the ${currentDiff} level.
-3. If ${candidateName} gave an answer to an interview question:
-   - Provide brief, constructive feedback on their answer.
-   - Advance to the next question for ${roleData.title} at the ${currentDiff} difficulty level:
-     * Basic level: Simple fundamental concepts, definitions, core syntax, or basic usage.
-     * Medium level: Practical patterns, state, async data, error handling, or database queries.
-     * Difficult level: High-scale architecture, performance optimization, concurrency, or security trade-offs.
-4. Speak conversationally as a human interviewer on a call. Address ${candidateName} naturally by name. Do NOT use markdown, bullet points, asterisks, brackets, or quotes.`
+CRITICAL INSTRUCTIONS:
+1. Speak in 1-3 natural, warm, conversational spoken sentences directly to ${candidateName}.
+2. If ${candidateName} asked a question (e.g. "what is html", "what is a database", "how does an api work", etc.):
+   - Answer their question directly, clearly, and concisely.
+   - DO NOT append or ask any technical interview question after your answer. Keep it natural and conversational!
+3. If ${candidateName} gave a short reply, comment, greeting, or answer (e.g. "okay nice on", "cool", "sounds good", "yes", or answered an earlier topic):
+   - Respond naturally and warmly to their comment.
+   - DO NOT interrogate or force a technical question after responding!
+4. ONLY ask a technical question if ${candidateName} explicitly asked you to ask one (such as saying "ask me a question" or "next question"). Otherwise, NEVER attach an unprompted technical question.
+5. Address ${candidateName} naturally by name. Do NOT use markdown, bullet points, asterisks, brackets, or quotes.`
 
       const models = [
         'gemini-3.1-flash-lite',
@@ -108,8 +112,23 @@ Instructions:
     }
   }
 
-  // 2. Comprehensive Semantic Topic Engine (Role-aware & Difficulty-calibrated fallback)
+  // 2. Comprehensive Semantic Topic Engine (Role-aware conversational responder)
   const nextQ = getQuestionForRole(normalizedRole, currentDiff, questionIndex + 1)
+
+  // Candidate Casual Affirmation (e.g. "okay nice on", "cool", "great", "sounds good", "fine")
+  if (
+    lower.includes('okay') ||
+    lower.includes('ok') ||
+    lower.includes('nice') ||
+    lower.includes('cool') ||
+    lower.includes('great') ||
+    lower.includes('awesome') ||
+    lower.includes('got it') ||
+    lower.includes('sounds good') ||
+    lower.includes('fine')
+  ) {
+    return `Glad to hear that, ${candidateName}! Feel free to ask me any technical questions, or let me know whenever you'd like to dive into a specific topic.`
+  }
 
   // Candidate Doesn't Know / Needs Support
   if (
@@ -123,7 +142,7 @@ Instructions:
     lower.includes('i do not know') ||
     lower.includes('skip')
   ) {
-    return `No problem at all, ${candidateName}! In technical interviews, honesty is a great quality. Let's explore this straightforward ${currentDiff} question for ${roleData.title}: ${nextQ}`
+    return `No problem at all, ${candidateName}! In technical discussions, honesty is a great quality. Feel free to ask me about any concept you'd like explained, or let me know what you'd like to talk about.`
   }
 
   // Relational Databases & SQL
@@ -138,49 +157,49 @@ Instructions:
     lower.includes('mongodb')
   ) {
     if (lower.includes('store') || lower.includes('row') || lower.includes('column') || lower.includes('in the') || lower.includes('table')) {
-      return `Spot on, ${candidateName}! Relational databases organize data into structured tables with rows, columns, and primary keys to enforce strong schema integrity. Excellent explanation! Advancing to our next ${currentDiff} question for ${roleData.title}: ${nextQ}`
+      return `Spot on, ${candidateName}! Relational databases organize data into structured tables with rows, columns, and primary keys to enforce strong schema integrity. Excellent explanation!`
     }
-    return `In a relational database, data is structured into tables with rows and columns, enforced by schemas and ACID transactions for reliable persistence, ${candidateName}. Moving to our next ${currentDiff} question for ${roleData.title}: ${nextQ}`
+    return `In a relational database, data is structured into tables with rows and columns, enforced by schemas and ACID transactions for reliable persistence, ${candidateName}. Feel free to ask if you'd like to explore any specific query or pattern!`
   }
 
   // APIs, REST, HTTP, CRUD, JSON
   if (lower.includes('api') || lower.includes('rest') || lower.includes('http') || lower.includes('crud') || lower.includes('json')) {
-    return `APIs allow applications to communicate, ${candidateName}. RESTful APIs use standard HTTP methods like GET and POST with JSON payloads to perform CRUD operations cleanly. Continuing for ${roleData.title}: ${nextQ}`
+    return `APIs allow applications to communicate, ${candidateName}. RESTful APIs use standard HTTP methods like GET and POST with JSON payloads to perform CRUD operations cleanly.`
   }
 
   // HTML & Markup
   if (lower.includes('html') || lower.includes('markup') || lower.includes('ishtml')) {
-    return `HTML stands for HyperText Markup Language, ${candidateName}. It provides the structural building blocks for web pages using semantic tags like header, main, and article. As we look at ${roleData.title} fundamentals: ${nextQ}`
+    return `HTML stands for HyperText Markup Language, ${candidateName}. It provides the structural building blocks for web pages using semantic elements like header, main, and article.`
   }
 
   // CSS & Styling
   if (lower.includes('css') || lower.includes('style') || lower.includes('flexbox') || lower.includes('tailwind')) {
-    return `CSS, or Cascading Style Sheets, styles and formats HTML elements on the web using layout systems like Flexbox and Grid, ${candidateName}. Continuing with our ${currentDiff} questions: ${nextQ}`
+    return `CSS, or Cascading Style Sheets, styles and formats HTML elements on the web using layout systems like Flexbox and Grid, ${candidateName}.`
   }
 
   // JavaScript & Execution
   if (lower.includes('javascript') || lower.includes('js') || lower.includes('event loop') || lower.includes('closure')) {
-    return `JavaScript is a versatile, asynchronous scripting language that powers interactive web interfaces and Node.js servers, ${candidateName}. For our next question: ${nextQ}`
+    return `JavaScript is a versatile, asynchronous scripting language that powers interactive web interfaces and Node.js servers, ${candidateName}.`
   }
 
   // React & UI Libraries
   if (lower.includes('react') || lower.includes('hook') || lower.includes('useeffect') || lower.includes('usestate') || lower.includes('props')) {
-    return `React is a component-based frontend library that uses declarative state and a virtual DOM to build interactive user interfaces efficiently, ${candidateName}. Here is your next question: ${nextQ}`
+    return `React is a component-based frontend library that uses declarative state and a virtual DOM to build interactive user interfaces efficiently, ${candidateName}.`
   }
 
   // Node.js & Backend
   if (lower.includes('node') || lower.includes('express') || lower.includes('backend') || lower.includes('server')) {
-    return `Node.js is an asynchronous, event-driven JavaScript runtime built on Chrome's V8 engine that powers high-concurrency backend services, ${candidateName}. Continuing for ${roleData.title}: ${nextQ}`
+    return `Node.js is an asynchronous, event-driven JavaScript runtime built on Chrome's V8 engine that powers high-concurrency backend services, ${candidateName}.`
   }
 
   // Docker & Containers
   if (lower.includes('docker') || lower.includes('container') || lower.includes('kubernetes')) {
-    return `Docker packages software and its dependencies into lightweight, isolated containers that run reliably across different computing environments, ${candidateName}. Here is your next question: ${nextQ}`
+    return `Docker packages software and its dependencies into lightweight, isolated containers that run reliably across different computing environments, ${candidateName}.`
   }
 
   // Git & Version Control
   if (lower.includes('git') || lower.includes('github') || lower.includes('merge') || lower.includes('branch')) {
-    return `Git is a distributed version control system that tracks source code revisions and allows multiple engineers to collaborate seamlessly, ${candidateName}. Moving to our next challenge: ${nextQ}`
+    return `Git is a distributed version control system that tracks source code revisions and allows multiple engineers to collaborate seamlessly, ${candidateName}.`
   }
 
   // Requesting Hint / Clarification
@@ -191,46 +210,53 @@ Instructions:
     lower.includes('guidance') ||
     lower.includes('clue')
   ) {
-    return `Here is a helpful hint, ${candidateName}: Break the problem down into simple steps. Think about the fundamental input, the expected output, and how data moves between them. Take a moment to explain your initial thoughts, and we can build on that together.`
+    return `Here is a helpful hint, ${candidateName}: Break the problem down into simple steps. Think about the fundamental input, the expected output, and how data moves between them.`
   }
 
-  // Next Question
-  if (lower.includes('next question') || lower.includes('next topic') || lower.includes('advance') || lower.includes('move on')) {
-    return `Let's advance to the next ${currentDiff} question for ${roleData.title}, ${candidateName}: ${nextQ}`
+  // Explicit Request for Next Question
+  if (
+    lower.includes('next question') ||
+    lower.includes('ask me a question') ||
+    lower.includes('give me a question') ||
+    lower.includes('interview question') ||
+    lower.includes('test me') ||
+    lower.includes('ask question')
+  ) {
+    return `Here is your next ${currentDiff} question for ${roleData.title}, ${candidateName}: ${nextQ}`
   }
 
   // Score My Answer
   if (lower.includes('score my answer') || lower.includes('evaluate') || lower.includes('rubric') || lower.includes('how did i do')) {
-    return `Evaluating your answer, ${candidateName}: Your vocal pacing is steady at ${wpm} WPM and your eye contact is strong at ${eyeContact}%. You explained the core idea well. To make it even stronger, mention a concrete real-world example. Ready for the next question?`
+    return `Evaluating your answer, ${candidateName}: Your vocal pacing is steady at ${wpm} WPM and your eye contact is strong at ${eyeContact}%. You explained the core idea well. To make it even stronger, mention a concrete real-world example.`
   }
 
   // Switch Topic
   if (lower.includes('switch topic')) {
     const topic = roleData.topics[Math.floor(Math.random() * roleData.topics.length)] || 'Core Concepts'
-    return `Switching topics to ${topic}, ${candidateName}. Here is your next ${currentDiff} question: ${nextQ}`
+    return `Switching topics to ${topic}, ${candidateName}. Feel free to ask any question or tell me what area you want to focus on!`
   }
 
   // Greetings / Identity
   if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('introduce')) {
-    return `I am CAREERAI, your personal AI interview companion powered by Gemini AI. I conduct friendly, realistic mock interviews tailored to your target role as a ${roleData.title}, ${candidateName}. Shall we continue?`
+    return `I am CAREERAI, your personal AI companion and mentor powered by Gemini AI. I'm here to practice, answer your technical questions, and help you prepare, ${candidateName}.`
   }
 
   if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey') || lower.includes('ready')) {
-    return `Hello ${candidateName}! Welcome to your technical session for ${roleData.title}. Let's jump into our ${currentDiff} question: ${nextQ}`
+    return `Hello ${candidateName}! Great to see you. Feel free to ask me any technical questions, or let me know whenever you'd like a mock interview question!`
   }
 
   // Unknown "What is X"
   const whatIsMatch = cleanText.match(/what\s+is\s+([a-zA-Z0-9_\s]{2,30})/i)
   if (whatIsMatch && whatIsMatch[1]) {
     const subject = whatIsMatch[1].trim()
-    return `${subject} is a key concept in modern software development, ${candidateName}. In building applications, it helps ensure modularity, reliability, and clear separation of concerns. In your role as a ${roleData.title}: ${nextQ}`
+    return `${subject} is a fundamental concept in software engineering, ${candidateName}. In building applications, it helps ensure modularity, reliability, and clear separation of concerns.`
   }
 
   // Substantive candidate answer (> 4 words)
   const words = cleanText.split(/\s+/).filter(Boolean).length
-  if (words >= 5) {
-    return `Good explanation, ${candidateName}! You highlighted the key principles nicely. Pacing is steady at ${wpm} WPM with ${eyeContact}% gaze centering. Advancing to our next ${currentDiff} question for ${roleData.title}: ${nextQ}`
+  if (words >= 4) {
+    return `Good explanation, ${candidateName}! You highlighted the key principles nicely. Vocal pacing is steady at ${wpm} WPM with strong gaze centering.`
   }
 
-  return `Understood, ${candidateName}. Let's explore the next aspect for your role as a ${roleData.title}: ${nextQ}`
+  return `Understood, ${candidateName}! Let me know what you'd like to explore, or ask me whatever is on your mind.`
 }

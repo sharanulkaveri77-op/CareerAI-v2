@@ -5,6 +5,7 @@ import {
   Database,
   Clock,
   Users,
+  Glasses,
   Activity,
   Settings,
   Shield,
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'memory', label: 'Memory', icon: Database },
   { id: 'history', label: 'History', icon: Clock },
   { id: 'people', label: 'People', icon: Users },
+  { id: 'glasses', label: 'Meta Glass', icon: Glasses },
 ]
 
 export const Header = ({

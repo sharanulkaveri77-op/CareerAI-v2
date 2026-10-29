@@ -15,6 +15,7 @@ import HistoryModal from '../components/sgcube/HistoryModal'
 import DiagnosticsModal from '../components/sgcube/DiagnosticsModal'
 import SettingsModal from '../components/sgcube/SettingsModal'
 import PeopleModal, { INTERVIEWER_PERSONAS } from '../components/sgcube/PeopleModal'
+import GlassesModal from '../components/sgcube/GlassesModal'
 import VaultModal from '../components/sgcube/VaultModal'
 import MemoryDetailModal from '../components/sgcube/MemoryDetailModal'
 import { submitAnswer, saveInterviewSession } from '../api/interview'
@@ -168,6 +169,7 @@ export default function InterviewAI() {
   const [isDiagnosticsModalOpen, setIsDiagnosticsModalOpen] = useState(false)
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const [isPeopleModalOpen, setIsPeopleModalOpen] = useState(false)
+  const [isGlassesModalOpen, setIsGlassesModalOpen] = useState(false)
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false)
   const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false)
 
@@ -903,8 +905,12 @@ export default function InterviewAI() {
       setQuestionIndex(nextIndex)
       const nextDiff = getDifficultyForIndex(nextIndex)
       setDifficultyLevel(nextDiff)
-      const fallbackQ = getQuestionForRole(candidateRole, nextDiff, nextIndex)
-      const fallbackReply = `Good points, ${config.userName || 'Sharanu'}. Let's advance to our next ${nextDiff} question for ${candidateRole}: ${fallbackQ}`
+      const isExplicitQ =
+        (text || '').toLowerCase().includes('next question') ||
+        (text || '').toLowerCase().includes('ask me a question')
+      const fallbackReply = isExplicitQ
+        ? `Here is your next ${nextDiff} question for ${candidateRole}, ${config.userName || 'Sharanu'}: ${getQuestionForRole(candidateRole, nextDiff, nextIndex)}`
+        : `Understood, ${config.userName || 'Sharanu'}! Feel free to ask me any technical question or tell me what topic you would like to explore next.`
       const aiTurn = {
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         sender: 'ai',
@@ -1017,6 +1023,7 @@ export default function InterviewAI() {
     if (tab === 'vision') setIsVisionModalOpen(true)
     if (tab === 'history') setIsHistoryModalOpen(true)
     if (tab === 'people') setIsPeopleModalOpen(true)
+    if (tab === 'glasses') setIsGlassesModalOpen(true)
     if (tab === 'memory') setIsMemoryModalOpen(true)
   }
 
@@ -1279,6 +1286,11 @@ export default function InterviewAI() {
       <MemoryDetailModal
         isOpen={isMemoryModalOpen}
         onClose={() => setIsMemoryModalOpen(false)}
+      />
+
+      <GlassesModal
+        isOpen={isGlassesModalOpen}
+        onClose={() => setIsGlassesModalOpen(false)}
       />
 
       <VaultModal
