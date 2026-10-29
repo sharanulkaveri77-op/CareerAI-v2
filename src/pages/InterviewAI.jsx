@@ -15,7 +15,6 @@ import HistoryModal from '../components/sgcube/HistoryModal'
 import DiagnosticsModal from '../components/sgcube/DiagnosticsModal'
 import SettingsModal from '../components/sgcube/SettingsModal'
 import PeopleModal, { INTERVIEWER_PERSONAS } from '../components/sgcube/PeopleModal'
-import GlassesModal from '../components/sgcube/GlassesModal'
 import VaultModal from '../components/sgcube/VaultModal'
 import MemoryDetailModal from '../components/sgcube/MemoryDetailModal'
 import { submitAnswer, saveInterviewSession } from '../api/interview'
@@ -169,7 +168,6 @@ export default function InterviewAI() {
   const [isDiagnosticsModalOpen, setIsDiagnosticsModalOpen] = useState(false)
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const [isPeopleModalOpen, setIsPeopleModalOpen] = useState(false)
-  const [isGlassesModalOpen, setIsGlassesModalOpen] = useState(false)
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false)
   const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false)
 
@@ -1019,7 +1017,6 @@ export default function InterviewAI() {
     if (tab === 'vision') setIsVisionModalOpen(true)
     if (tab === 'history') setIsHistoryModalOpen(true)
     if (tab === 'people') setIsPeopleModalOpen(true)
-    if (tab === 'glasses') setIsGlassesModalOpen(true)
     if (tab === 'memory') setIsMemoryModalOpen(true)
   }
 
@@ -1282,11 +1279,6 @@ export default function InterviewAI() {
       <MemoryDetailModal
         isOpen={isMemoryModalOpen}
         onClose={() => setIsMemoryModalOpen(false)}
-      />
-
-      <GlassesModal
-        isOpen={isGlassesModalOpen}
-        onClose={() => setIsGlassesModalOpen(false)}
       />
 
       <VaultModal
