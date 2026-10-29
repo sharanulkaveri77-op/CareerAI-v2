@@ -1,93 +1,105 @@
-# CareerAI — Career Intelligence Platform
+# CareerAI — AI-Powered Career Intelligence & Mock Interview Platform
 
-> 🚀 **Live Demo:** [https://careerai-v2.vercel.app](https://careerai-v2.vercel.app)
+> 🚀 **Live Demo:** [https://careerai-v2.vercel.app](https://careerai-v2.vercel.app)  
+> 💻 **GitHub Repository:** [https://github.com/sharanulkaveri77-op/CareerAI-v2](https://github.com/sharanulkaveri77-op/CareerAI-v2)
 
-CareerAI is an AI-powered **career-intelligence web app** built as a final-year
-B.E. Computer Science project. This repository contains the **frontend only**,
-designed to connect to a separate Node/Express/MongoDB backend (built by a
-teammate). It deliberately contains **no backend logic or database code** — only
-`fetch`/axios calls to the REST endpoints described below.
+CareerAI is a next-generation career intelligence platform featuring **CAREERAI** — an interactive multimodal AI interviewer with live computer vision, continuous neural voice synthesis, and real-time speech recognition.
 
-## Tech Stack
+---
 
-- **React 18 + Vite** — fast dev server & build
-- **React Router v6** — routing & route guarding
-- **Tailwind CSS** — dark purple "AI SaaS" design system
-- **lucide-react** — icons
-- **recharts** — dashboard charts
-- **axios** — API client (single configured instance in `src/api/client.js`)
-- **react-hook-form** — all form handling & validation
-- **Context API** (`AuthContext`) — logged-in user + JWT in `localStorage`
+## 🌟 Key Highlights & Modules
 
-## Getting Started
+### 🎙️ 1. CAREERAI Live Multimodal Interview Studio (`/interview`)
+- **Executive 2-Column Studio Layout**:
+  - **Left Stage**: Full-height high-definition camera feed with face tracking, eye contact centering, and real-time frame FPS telemetry.
+  - **Right Stage (Interactive HUD Stack)**:
+    - **Card 1 — 3D Hologram Core & Voice HUD**: Interactive 3D rotating visualizer, speech state badges (`LISTENING`, `USER_SPEAKING`, `AI_SPEAKING`, `AI_THINKING`), and instant *"Talk with CAREERAI"* microphone activation.
+    - **Card 2 — Recent History & Dialogue Log**: Live conversational transcripts displaying candidate turns (`SHARANU`) and AI feedback with word count, vocal pacing (WPM), and audio replay controls.
+    - **Card 3 — System Telemetry**: Real-time hardware status indicators for camera, microphone VU levels, audio speaker test, and network latency.
+- **Continuous Voice Interaction**:
+  - Re-architected Web Speech recognition pipeline with native `en-IN` / `en-US` locale detection for high-accuracy speech transcription without cut-offs.
+  - Conversational 1.6s natural speech debounce + instant *"Submit Answer Now"* controls.
+  - Echo guard preventing AI speech playback from triggering false mic input.
+- **Gemini AI Conversational Engine (`gemini-3.1-flash-lite`)**:
+  - Live, low-latency (< 800ms) conversational AI answering candidate questions directly (e.g. *"What is HTML?"*, *"What is a database?"*, *"Explain React Hooks"*).
+  - **Progressive Difficulty Ladder**:
+    - **Basic (Q1–Q2)**: Core fundamentals, definitions, and building blocks.
+    - **Medium (Q3–Q4)**: Practical architecture, state management, and database queries.
+    - **Difficult (Q5+)**: High-scale distributed design, concurrency, and performance trade-offs.
+
+### 📊 2. Career Health & Dashboard (`/dashboard`)
+- Real-time readiness scoring, skill distribution, and market trend tracking.
+- Personalized milestone roadmaps with target roles (Full Stack Engineer, Frontend Engineer, AI Engineer, etc.).
+
+### 🤖 3. Career Advisor (`/advisor`)
+- AI conversational advisor providing role guidance, resume optimization strategies, and interview preparation plans.
+
+### 📝 4. Intelligent Resume Builder & ATS Scanner (`/resume`)
+- In-browser PDF & DOCX resume parsing and analysis.
+- Real-time ATS match scoring, missing keyword recommendations, and formatting feedback.
+
+### 💡 5. Skill Assessment & Roadmaps (`/skills`, `/roadmap`)
+- Interactive skill mastery quizzes and structured step-by-step career roadmaps.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend Core**: React 18, Vite 5, React Router v6
+- **Styling & UI**: Tailwind CSS (Executive Dark Cybernetic Theme), Lucide React
+- **Visualizations**: Recharts, Canvas 2D/3D Wireframe Visualizers
+- **AI & Speech**:
+  - Google Gemini AI (`gemini-3.1-flash-lite`)
+  - Web Speech API (SpeechRecognition & SpeechSynthesis)
+  - Web Audio API (Frequency Analyser & VU Meter)
+- **Database & Auth**: Supabase / REST Backend Integration
+- **Deployment**: Vercel (Auto-CI/CD linked to GitHub `main`)
+
+---
+
+## 🚀 Getting Started Locally
+
+### Prerequisites
+- Node.js 18+ installed on your machine
+- Modern Chromium browser (Chrome or Edge recommended for Web Speech recognition)
+
+### Installation
 
 ```bash
-# 1. Install dependencies
+# 1. Clone the repository
+git clone https://github.com/sharanulkaveri77-op/CareerAI-v2.git
+cd CareerAI-v2
+
+# 2. Install dependencies
 npm install
 
-# 2. Configure the backend URL (optional — defaults to http://localhost:5000/api)
+# 3. Configure environment variables (optional)
 cp .env.example .env
-# edit .env and set VITE_API_URL if your backend runs elsewhere
 
-# 3. Run the dev server
+# 4. Start the local development server
 npm run dev
 ```
 
-The app runs on http://localhost:5173 by default.
+The app will start locally at **`http://localhost:5174/`** (or `http://localhost:5173/`).
 
-## Connecting to the Backend
+### Production Build
 
-All network calls go through `src/api/client.js`, which:
-
-- sets `baseURL` from `import.meta.env.VITE_API_URL` (default
-  `http://localhost:5000/api`),
-- attaches the JWT from `localStorage["careerai_token"]` to every request via an
-  axios interceptor,
-- normalizes error messages from `error.response.data.message`.
-
-Per-feature service modules live in `src/api/*` (e.g. `auth.js`, `dashboard.js`,
-`skills.js`). They call the following endpoints (all under the base URL):
-
-| Area        | Method & Path                                            |
-| ----------- | ------------------------------------------------------- |
-| Auth        | `POST /auth/student/signup`, `/auth/student/login`      |
-|             | `POST /auth/admin/signup`, `/auth/admin/login`          |
-| Dashboard   | `GET /dashboard/summary`, `GET /dashboard/trends`        |
-| Advisor     | `POST /advisor/chat`                                     |
-| Skills      | `GET /skills`, `POST /skills`, `POST /skills/analyze`    |
-| Roles       | `GET /roles/search?q=`, `GET/POST/DELETE /roles/saved`  |
-| Resume      | `POST /resume/analyze` (multipart/form-data)            |
-| AI Interview| `POST /interview/ai/start`, `/answer`, `GET /summary`   |
-| Live Rooms  | `POST /rooms/create`, `POST /rooms/join` (WebRTC via backend signaling) |
-| Learning    | `GET /learning`                                          |
-| Roadmap     | `POST /roadmap/generate`                                 |
-| Admin       | `GET /admin/summary`, `/students`, `/interviews`,        |
-|             | `/materials`, `/quizzes`, `/assignments`, `/performance` |
-
-> Until the backend is running, every page degrades gracefully: it shows
-> loading skeletons / empty states instead of hard-coded fake data.
-
-## Project Structure
-
-```
-src/
-  api/            # client.js (axios instance) + per-feature services
-  components/     # Sidebar, TopBar, IconChip, StatCard, ProgressBar,
-                  # Modal, MarketTrends, CareerHealth, Feedback, AppShell, guards
-  context/        # AuthContext.jsx (token + user in localStorage)
-  pages/          # Login, Dashboard, Advisor, Skills, Roles, Resume,
-                  # Interview*, Learning, Roadmap, Admin
-  App.jsx         # routes + guards
-  main.jsx        # entry
-  index.css       # Tailwind + design tokens
+```bash
+npm run build
+npm run preview
 ```
 
-## Notes
+---
 
-- **Auth/guards:** `ProtectedRoute` (student pages) and `AdminRoute` (admin
-  pages) check `AuthContext` and redirect to `/login` when no token is present.
-- **Interview Live:** the client sets up `getUserMedia` for local camera/mic and
-  renders the video tiles, in-call chat, and AI-coach panel. The actual WebRTC
-  signaling is the backend's responsibility (`socket.io` / `simple-peer`).
-- **No external images** are used — every illustration is a lucide icon or a
-  Tailwind gradient blob, so the project has zero broken image links.
+## 🌐 Live Deployment & Demo Link
+
+- **Production URL**: [https://careerai-v2.vercel.app](https://careerai-v2.vercel.app)
+- Every push to the `main` branch automatically deploys to Vercel with zero downtime.
+
+---
+
+## 👤 Author & Candidate Profile
+
+- **Candidate Name**: Sharanu
+- **Target Role**: Full Stack Engineer
+- **Platform**: CareerAI v2
