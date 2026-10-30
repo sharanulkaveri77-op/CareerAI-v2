@@ -447,7 +447,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-6 border-b border-white/5">
         <div>
           <h1 className="text-2xl font-bold text-heading flex items-center gap-2">
-            Good morning, {userName} 👋
+            Good morning, {userName}
           </h1>
           <p className="text-sm text-gray-400 mt-1 flex items-center gap-2">
             <span className="font-medium text-gray-200">{targetRole}</span>
